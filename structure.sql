@@ -60,6 +60,18 @@ CREATE TABLE quotes (
 
 
 --
+-- Name: lq; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW lq AS
+ SELECT DISTINCT ON (quotes.symbol) quotes.symbol,
+    quotes.bid,
+    quotes.ask
+   FROM quotes
+  ORDER BY quotes.symbol, quotes.dt DESC;
+
+
+--
 -- Name: sltp; Type: TABLE; Schema: public; Owner: -
 --
 
