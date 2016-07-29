@@ -120,6 +120,43 @@ CREATE VIEW v_pnl AS
 
 
 --
+-- Name: v_sltp; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_sltp AS
+ SELECT DISTINCT ON (sltp.symbol) sltp.dt,
+    sltp.symbol,
+    sltp.sl,
+    sltp.tp
+   FROM sltp
+  ORDER BY sltp.symbol, sltp.dt DESC;
+
+
+--
+-- Name: v_rr; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_rr AS
+ SELECT p.symbol,
+    p.qua,
+    p.price,
+    p.price_be,
+    p.comm,
+    s.sl,
+    s.tp,
+        CASE
+            WHEN (p.qua > 0) THEN ((s.sl - p.price_be) * (p.qua)::numeric)
+            ELSE ((s.sl - p.price_be) * (p.qua)::numeric)
+        END AS risk,
+        CASE
+            WHEN (p.qua > 0) THEN ((s.tp - p.price_be) * (p.qua)::numeric)
+            ELSE ((s.tp - p.price_be) * (p.qua)::numeric)
+        END AS reward
+   FROM (v_pos p
+     LEFT JOIN v_sltp s ON (((p.symbol)::text = (s.symbol)::text)));
+
+
+--
 -- Name: v_trades; Type: VIEW; Schema: public; Owner: -
 --
 
