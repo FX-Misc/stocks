@@ -59,10 +59,24 @@ BEGIN
   RETURN QUERY
   SELECT
     s.symbol,
-    ROUND(risk_balance / (q.bid - s.sl) / count(*) OVER ())::INT AS qua
+    ROUND((risk_balance / count(*) OVER () + coalesce(r.risk, 0)) / sl_distance + coalesce(p.qua, 0))::INT qa
   FROM
     v_sltp s
-    JOIN v_quotes q ON s.symbol = q.symbol
+    LEFT JOIN v_quotes q ON s.symbol = q.symbol
+    LEFT JOIN v_pos p ON p.symbol = s.symbol
+    LEFT JOIN v_rr r ON r.symbol = s.symbol
+    LEFT JOIN (
+                SELECT
+                  q.symbol,
+                  CASE WHEN q.bid > s.sl
+                    THEN q.ask - s.sl
+                  ELSE q.bid - s.sl END sl_distance
+                FROM
+                  v_sltp s
+                  LEFT JOIN v_quotes q ON s.symbol = q.symbol
+                WHERE
+                  s.sl IS NOT NULL AND s.tp IS NOT NULL
+              ) AS sl ON s.symbol = sl.symbol
   WHERE
     s.sl IS NOT NULL AND s.tp IS NOT NULL;
 END;
