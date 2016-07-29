@@ -60,18 +60,6 @@ CREATE TABLE quotes (
 
 
 --
--- Name: lq; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW lq AS
- SELECT DISTINCT ON (quotes.symbol) quotes.symbol,
-    quotes.bid,
-    quotes.ask
-   FROM quotes
-  ORDER BY quotes.symbol, quotes.dt DESC;
-
-
---
 -- Name: sltp; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -95,6 +83,58 @@ CREATE TABLE trades (
     comm numeric NOT NULL,
     dt timestamp with time zone
 );
+
+
+--
+-- Name: v_pos; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_pos AS
+ SELECT trades.symbol,
+    sum(trades.qua) AS qua,
+    (sum(((trades.qua)::numeric * trades.price)) / (sum(trades.qua))::numeric) AS price,
+        CASE
+            WHEN (sum(trades.qua) > 0) THEN ((sum(((trades.qua)::numeric * trades.price)) + ((2)::numeric * sum(trades.comm))) / (sum(trades.qua))::numeric)
+            ELSE ((sum(((trades.qua)::numeric * trades.price)) - ((2)::numeric * sum(trades.comm))) / (sum(trades.qua))::numeric)
+        END AS price_be,
+    sum(trades.comm) AS comm
+   FROM trades
+  GROUP BY trades.symbol
+ HAVING (sum(trades.qua) <> 0);
+
+
+--
+-- Name: v_quotes; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_quotes AS
+ SELECT DISTINCT ON (quotes.symbol) quotes.symbol,
+    quotes.bid,
+    quotes.ask
+   FROM quotes
+  ORDER BY quotes.symbol, quotes.dt DESC;
+
+
+--
+-- Name: v_trades; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_trades AS
+ SELECT t.id,
+    t.symbol,
+    t.price,
+    t.qua,
+    t.comm,
+    t.dt
+   FROM ( SELECT trades.id,
+            trades.symbol,
+            trades.price,
+            trades.qua,
+            trades.comm,
+            trades.dt,
+            sum(trades.qua) OVER (PARTITION BY trades.symbol) AS pos_now
+           FROM trades) t
+  WHERE (t.pos_now <> 0);
 
 
 --
