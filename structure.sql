@@ -14,20 +14,6 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: plcoffee; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS plcoffee WITH SCHEMA pg_catalog;
-
-
---
--- Name: EXTENSION plcoffee; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION plcoffee IS 'PL/CoffeeScript (v8) trusted procedural language';
-
-
---
 -- Name: plpgsql; Type: EXTENSION; Schema: -; Owner: -
 --
 
