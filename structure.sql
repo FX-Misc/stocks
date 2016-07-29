@@ -102,6 +102,27 @@ CREATE VIEW v_quotes AS
 
 
 --
+-- Name: v_pnl; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_pnl AS
+ SELECT p.symbol,
+    p.qua,
+    p.price,
+    p.price_be,
+    p.comm,
+    q.bid,
+    q.ask,
+    (
+        CASE
+            WHEN (p.qua > 0) THEN (q.bid - p.price_be)
+            ELSE (q.ask - p.price_be)
+        END * (p.qua)::numeric) AS pnl
+   FROM (v_pos p
+     LEFT JOIN v_quotes q ON (((p.symbol)::text = (q.symbol)::text)));
+
+
+--
 -- Name: v_trades; Type: VIEW; Schema: public; Owner: -
 --
 
