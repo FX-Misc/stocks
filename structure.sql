@@ -72,10 +72,10 @@ CREATE TABLE trades (
 
 
 --
--- Name: v_pos; Type: VIEW; Schema: public; Owner: -
+-- Name: v_pos_curr; Type: VIEW; Schema: public; Owner: -
 --
 
-CREATE VIEW v_pos AS
+CREATE VIEW v_pos_curr AS
  SELECT trades.symbol,
     sum(trades.qua) AS qua,
     (sum(((trades.qua)::numeric * trades.price)) / (sum(trades.qua))::numeric) AS price,
@@ -115,7 +115,7 @@ CREATE VIEW v_pnl AS
             WHEN (p.qua > 0) THEN (q.bid - p.price_be)
             ELSE (q.ask - p.price_be)
         END * (p.qua)::numeric) AS pnl
-   FROM (v_pos p
+   FROM (v_pos_curr p
      LEFT JOIN v_quotes q ON (((p.symbol)::text = (q.symbol)::text)));
 
 
@@ -151,7 +151,7 @@ CREATE VIEW v_pos_next AS
 CREATE VIEW v_pos_adj AS
  SELECT COALESCE(c.symbol, n.symbol) AS symbol,
     (COALESCE(n.qua, (0)::numeric) - (COALESCE(c.qua, (0)::bigint))::numeric) AS adjust
-   FROM (v_pos c
+   FROM (v_pos_curr c
      FULL JOIN v_pos_next n ON (((c.symbol)::text = (n.symbol)::text)));
 
 
@@ -175,7 +175,7 @@ CREATE VIEW v_rr AS
             WHEN (p.qua > 0) THEN ((s.tp - p.price_be) * (p.qua)::numeric)
             ELSE ((s.tp - p.price_be) * (p.qua)::numeric)
         END AS reward
-   FROM (v_pos p
+   FROM (v_pos_curr p
      LEFT JOIN v_sltp s ON (((p.symbol)::text = (s.symbol)::text)));
 
 
