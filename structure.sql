@@ -79,10 +79,7 @@ CREATE VIEW v_pos AS
  SELECT trades.symbol,
     sum(trades.qua) AS qua,
     (sum(((trades.qua)::numeric * trades.price)) / (sum(trades.qua))::numeric) AS price,
-        CASE
-            WHEN (sum(trades.qua) > 0) THEN ((sum(((trades.qua)::numeric * trades.price)) + ((2)::numeric * sum(trades.comm))) / (sum(trades.qua))::numeric)
-            ELSE ((sum(((trades.qua)::numeric * trades.price)) - ((2)::numeric * sum(trades.comm))) / (sum(trades.qua))::numeric)
-        END AS price_be,
+    ((sum(((trades.qua)::numeric * trades.price)) + ((2)::numeric * sum(trades.comm))) / (sum(trades.qua))::numeric) AS price_be,
     sum(trades.comm) AS comm
    FROM trades
   GROUP BY trades.symbol
