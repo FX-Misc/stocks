@@ -29,6 +29,46 @@ COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 
 SET search_path = public, pg_catalog;
 
+--
+-- Name: f_pos_adj(numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION f_pos_adj(risk_balance numeric) RETURNS TABLE(symbol character varying, qua bigint)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    COALESCE(c.symbol, n.symbol)            AS symbol,
+    COALESCE(n.qua, 0) - COALESCE(c.qua, 0) AS adjust
+  FROM
+    v_pos_curr c
+    FULL JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol;
+END;
+$$;
+
+
+--
+-- Name: f_pos_next(numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION f_pos_next(risk_balance numeric) RETURNS TABLE(symbol character varying, qua integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    s.symbol,
+    ROUND(risk_balance / (q.bid - s.sl) / count(*) OVER ())::INT AS qua
+  FROM
+    v_sltp s
+    JOIN v_quotes q ON s.symbol = q.symbol
+  WHERE
+    s.sl IS NOT NULL AND s.tp IS NOT NULL;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_with_oids = false;
@@ -130,29 +170,6 @@ CREATE VIEW v_sltp AS
     sltp.tp
    FROM sltp
   ORDER BY sltp.symbol, sltp.dt DESC;
-
-
---
--- Name: v_pos_next; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW v_pos_next AS
- SELECT s.symbol,
-    round((((1000)::numeric / (q.bid - s.sl)) / (count(*) OVER ())::numeric)) AS qua
-   FROM (v_sltp s
-     JOIN v_quotes q ON (((s.symbol)::text = (q.symbol)::text)))
-  WHERE ((s.sl IS NOT NULL) AND (s.tp IS NOT NULL));
-
-
---
--- Name: v_pos_adj; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW v_pos_adj AS
- SELECT COALESCE(c.symbol, n.symbol) AS symbol,
-    (COALESCE(n.qua, (0)::numeric) - (COALESCE(c.qua, (0)::bigint))::numeric) AS adjust
-   FROM (v_pos_curr c
-     FULL JOIN v_pos_next n ON (((c.symbol)::text = (n.symbol)::text)));
 
 
 --
