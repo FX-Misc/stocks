@@ -52,7 +52,7 @@ CREATE TABLE quotes (
 CREATE TABLE sltp (
     dt timestamp with time zone DEFAULT now() NOT NULL,
     symbol character varying(10) NOT NULL,
-    sl numeric NOT NULL,
+    sl numeric,
     tp numeric
 );
 
@@ -130,6 +130,29 @@ CREATE VIEW v_sltp AS
     sltp.tp
    FROM sltp
   ORDER BY sltp.symbol, sltp.dt DESC;
+
+
+--
+-- Name: v_pos_next; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_pos_next AS
+ SELECT s.symbol,
+    round((((1000)::numeric / (q.bid - s.sl)) / (count(*) OVER ())::numeric)) AS qua
+   FROM (v_sltp s
+     JOIN v_quotes q ON (((s.symbol)::text = (q.symbol)::text)))
+  WHERE ((s.sl IS NOT NULL) AND (s.tp IS NOT NULL));
+
+
+--
+-- Name: v_pos_adj; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_pos_adj AS
+ SELECT COALESCE(c.symbol, n.symbol) AS symbol,
+    (COALESCE(n.qua, (0)::numeric) - (COALESCE(c.qua, (0)::bigint))::numeric) AS adjust
+   FROM (v_pos c
+     FULL JOIN v_pos_next n ON (((c.symbol)::text = (n.symbol)::text)));
 
 
 --
