@@ -85,7 +85,10 @@ BEGIN
   RETURN QUERY
   SELECT
     s.symbol,
-    trunc((risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0))::BIGINT qua
+    trunc( CASE
+      WHEN risk - coalesce(p_risk,0) > 0 THEN (risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)
+      ELSE risk / r_dist
+    END )::BIGINT qua
   FROM
     (
       SELECT
