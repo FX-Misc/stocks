@@ -30,6 +30,32 @@ COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 SET search_path = public, pg_catalog;
 
 --
+-- Name: f_comm(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION f_comm(qua bigint) RETURNS numeric
+    LANGUAGE sql
+    AS $$
+SELECT GREATEST(1.5, qua * .005);
+$$;
+
+
+--
+-- Name: f_comm_qua(numeric, numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION f_comm_qua(amt numeric, price numeric) RETURNS integer
+    LANGUAGE sql
+    AS $$
+SELECT CASE
+       WHEN price > 0
+         THEN FLOOR(LEAST((amt - 2 * 1.5) / price, amt / (price + 2 * 0.005))) :: INT
+       ELSE CEIL(GREATEST((amt - 2 * 1.5) / price, amt / (price - 2 * 0.005))) :: INT
+       END
+$$;
+
+
+--
 -- Name: f_pos_adj(numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
