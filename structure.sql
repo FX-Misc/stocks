@@ -44,13 +44,13 @@ $$;
 -- Name: f_comm_qua(numeric, numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION f_comm_qua(amt numeric, price numeric) RETURNS integer
+CREATE FUNCTION f_comm_qua(amt numeric, dist numeric) RETURNS bigint
     LANGUAGE sql
     AS $$
 SELECT CASE
-       WHEN price > 0
-         THEN FLOOR(LEAST((amt - 2 * 1.5) / price, amt / (price + 2 * 0.005))) :: INT
-       ELSE CEIL(GREATEST((amt - 2 * 1.5) / price, amt / (price - 2 * 0.005))) :: INT
+       WHEN dist > 0
+         THEN FLOOR(LEAST((amt - 1.5) / dist, amt / (dist + 0.005))) :: BIGINT
+       ELSE CEIL(GREATEST((amt - 1.5) / dist, amt / (dist - 0.005))) :: BIGINT
        END
 $$;
 
@@ -69,7 +69,7 @@ BEGIN
     COALESCE(n.qua, 0) - COALESCE(c.qua, 0) AS adjust
   FROM
     v_pos c
-    FULL JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol;
+    FULL OUTER JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol;
 END;
 $$;
 
@@ -78,33 +78,47 @@ $$;
 -- Name: f_pos_next(numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION f_pos_next(risk_balance numeric) RETURNS TABLE(symbol character varying, qua integer)
+CREATE FUNCTION f_pos_next(risk_balance numeric) RETURNS TABLE(symbol character varying, qua bigint)
     LANGUAGE plpgsql
     AS $$
 BEGIN
   RETURN QUERY
   SELECT
     s.symbol,
-    ROUND((risk_balance / count(*) OVER () + coalesce(r.risk, 0)) / sl_distance + coalesce(p.qua, 0))::INT qa
+    trunc((risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0))::BIGINT qua
   FROM
-    v_sltp s
+    (
+      SELECT
+        s.symbol,
+        sl,
+        tp,
+        risk_balance / count(*) OVER () risk
+      FROM
+        v_sltp s
+      WHERE
+        sl IS NOT NULL AND tp IS NOT NULL
+    ) as s
     LEFT JOIN v_quotes q ON s.symbol = q.symbol
     LEFT JOIN v_pos p ON p.symbol = s.symbol
-    LEFT JOIN v_rr r ON r.symbol = s.symbol
     LEFT JOIN (
-                SELECT
-                  q.symbol,
-                  CASE WHEN q.bid > s.sl
-                    THEN q.ask - s.sl
-                  ELSE q.bid - s.sl END sl_distance
-                FROM
-                  v_sltp s
-                  LEFT JOIN v_quotes q ON s.symbol = q.symbol
-                WHERE
-                  s.sl IS NOT NULL AND s.tp IS NOT NULL
-              ) AS sl ON s.symbol = sl.symbol
-  WHERE
-    s.sl IS NOT NULL AND s.tp IS NOT NULL;
+      SELECT
+        p.symbol,
+        ABS(p.qua * (p.price - s.sl))::BIGINT p_risk
+      FROM
+        v_pos p
+        LEFT JOIN v_sltp s ON p.symbol = s.symbol
+      WHERE
+        sl IS NOT NULL AND tp IS NOT NULL
+    ) as pr ON s.symbol = pr.symbol
+    LEFT JOIN LATERAL (
+      SELECT
+        q.symbol,
+        CASE
+          WHEN bid > sl THEN ask - sl
+          ELSE bid - sl
+        END r_dist
+    ) as rd ON s.symbol = rd.symbol
+    WHERE trunc((risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)) != 0;
 END;
 $$;
 
@@ -158,9 +172,7 @@ CREATE TABLE trades (
 CREATE VIEW v_pos AS
  SELECT trades.symbol,
     sum(trades.qua) AS qua,
-    (sum(((trades.qua)::numeric * trades.price)) / (sum(trades.qua))::numeric) AS price,
-    ((sum(((trades.qua)::numeric * trades.price)) + ((2)::numeric * sum(trades.comm))) / (sum(trades.qua))::numeric) AS price_be,
-    sum(trades.comm) AS comm
+    (sum(((trades.qua)::numeric * trades.price)) / (sum(trades.qua))::numeric) AS price
    FROM trades
   GROUP BY trades.symbol
  HAVING (sum(trades.qua) <> 0);
@@ -184,17 +196,10 @@ CREATE VIEW v_quotes AS
 
 CREATE VIEW v_pnl AS
  SELECT p.symbol,
-    p.qua,
-    p.price,
-    p.price_be,
-    p.comm,
-    q.bid,
-    q.ask,
-    (
         CASE
-            WHEN (p.qua > 0) THEN (q.bid - p.price_be)
-            ELSE (q.ask - p.price_be)
-        END * (p.qua)::numeric) AS pnl
+            WHEN (p.qua > 0) THEN ((p.qua)::numeric * (q.bid - p.price))
+            ELSE ((p.qua)::numeric * (q.ask - p.price))
+        END AS pnl
    FROM (v_pos p
      LEFT JOIN v_quotes q ON (((p.symbol)::text = (q.symbol)::text)));
 
@@ -210,52 +215,6 @@ CREATE VIEW v_sltp AS
     sltp.tp
    FROM sltp
   ORDER BY sltp.symbol, sltp.dt DESC;
-
-
---
--- Name: v_rr; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW v_rr AS
- SELECT p.symbol,
-    p.qua,
-    p.price,
-    p.price_be,
-    p.comm,
-    s.sl,
-    s.tp,
-        CASE
-            WHEN (p.qua > 0) THEN ((s.sl - p.price_be) * (p.qua)::numeric)
-            ELSE ((s.sl - p.price_be) * (p.qua)::numeric)
-        END AS risk,
-        CASE
-            WHEN (p.qua > 0) THEN ((s.tp - p.price_be) * (p.qua)::numeric)
-            ELSE ((s.tp - p.price_be) * (p.qua)::numeric)
-        END AS reward
-   FROM (v_pos p
-     LEFT JOIN v_sltp s ON (((p.symbol)::text = (s.symbol)::text)));
-
-
---
--- Name: v_trades; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW v_trades AS
- SELECT t.id,
-    t.symbol,
-    t.price,
-    t.qua,
-    t.comm,
-    t.dt
-   FROM ( SELECT trades.id,
-            trades.symbol,
-            trades.price,
-            trades.qua,
-            trades.comm,
-            trades.dt,
-            sum(trades.qua) OVER (PARTITION BY trades.symbol) AS pos_now
-           FROM trades) t
-  WHERE (t.pos_now <> 0);
 
 
 --

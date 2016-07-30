@@ -6,7 +6,7 @@ BEGIN
   RETURN QUERY
   SELECT
     s.symbol,
-    trunc((risk - coalesce(p_risk,0)) / r_dist)::BIGINT qua
+    trunc((risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0))::BIGINT qua
   FROM
     (
       SELECT
@@ -39,7 +39,7 @@ BEGIN
           ELSE bid - sl
         END r_dist
     ) as rd ON s.symbol = rd.symbol
-    WHERE trunc((risk - coalesce(p_risk,0)) / r_dist) != 0;
+    WHERE trunc((risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)) != 0;
 END;
 $BODY$
 LANGUAGE plpgsql VOLATILE;
