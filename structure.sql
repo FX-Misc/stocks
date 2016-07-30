@@ -69,7 +69,9 @@ BEGIN
     COALESCE(n.qua, 0) - COALESCE(c.qua, 0) AS adjust
   FROM
     v_pos c
-    FULL OUTER JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol;
+    FULL OUTER JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol
+  WHERE
+    COALESCE(n.qua, 0) - COALESCE(c.qua, 0) != 0;
 END;
 $$;
 
@@ -121,7 +123,10 @@ BEGIN
           ELSE bid - sl
         END r_dist
     ) as rd ON s.symbol = rd.symbol
-    WHERE trunc((risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)) != 0;
+    WHERE trunc( CASE
+      WHEN risk - coalesce(p_risk,0) > 0 THEN (risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)
+      ELSE risk / r_dist
+    END ) != 0;
 END;
 $$;
 

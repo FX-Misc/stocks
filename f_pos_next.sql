@@ -42,7 +42,10 @@ BEGIN
           ELSE bid - sl
         END r_dist
     ) as rd ON s.symbol = rd.symbol
-    WHERE trunc((risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)) != 0;
+    WHERE trunc( CASE
+      WHEN risk - coalesce(p_risk,0) > 0 THEN (risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)
+      ELSE risk / r_dist
+    END ) != 0;
 END;
 $BODY$
 LANGUAGE plpgsql VOLATILE;
