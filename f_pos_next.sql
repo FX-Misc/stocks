@@ -4,48 +4,49 @@ AS
 $BODY$
 BEGIN
   RETURN QUERY
-  SELECT
-    s.symbol,
-    trunc( CASE
-      WHEN risk - coalesce(p_risk,0) > 0 THEN (risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)
-      ELSE risk / r_dist
-    END )::BIGINT qua
-  FROM
-    (
-      SELECT
-        s.symbol,
-        sl,
-        tp,
-        risk_balance / count(*) OVER () risk
-      FROM
-        v_sltp s
-      WHERE
-        sl IS NOT NULL AND tp IS NOT NULL
-    ) as s
-    LEFT JOIN v_quotes q ON s.symbol = q.symbol
-    LEFT JOIN v_pos p ON p.symbol = s.symbol
-    LEFT JOIN (
-      SELECT
-        p.symbol,
-        ABS(p.qua * (p.price - s.sl))::BIGINT p_risk
-      FROM
-        v_pos p
-        LEFT JOIN v_sltp s ON p.symbol = s.symbol
-      WHERE
-        sl IS NOT NULL AND tp IS NOT NULL
-    ) as pr ON s.symbol = pr.symbol
-    LEFT JOIN LATERAL (
-      SELECT
-        q.symbol,
-        CASE
+  WITH risk_curr AS (
+    SELECT
+      v_pos.symbol,
+       ABS(v_pos.qua * (sl-price)) risk_curr,
+      v_pos.qua curr_qua
+    FROM
+      v_pos
+      LEFT JOIN v_sltp ON v_pos.symbol = v_sltp.symbol
+  ), risk_dist AS (
+    SELECT
+      s.symbol,
+      CASE
           WHEN bid > sl THEN ask - sl
           ELSE bid - sl
-        END r_dist
-    ) as rd ON s.symbol = rd.symbol
-    WHERE trunc( CASE
-      WHEN risk - coalesce(p_risk,0) > 0 THEN (risk - coalesce(p_risk,0)) / r_dist + coalesce(p.qua,0)
-      ELSE risk / r_dist
-    END ) != 0;
+      END risk_dist
+    FROM
+      v_sltp s
+      LEFT JOIN v_quotes q ON s.symbol = q.symbol
+    WHERE
+      s.sl IS NOT NULL AND s.tp IS NOT NULL
+  ), calc AS (
+    SELECT
+      s.symbol,
+      COALESCE(CASE
+        WHEN risk_fut.risk > risk_curr THEN f_comm_qua(risk_fut.risk - risk_curr, risk_dist) + curr_qua
+        WHEN risk_fut.risk < risk_curr THEN trunc(curr_qua * risk_fut.risk / risk_curr)::BIGINT
+        WHEN risk_fut.risk = risk_curr THEN curr_qua
+      END, f_comm_qua(risk_fut.risk, risk_dist)) qua
+    FROM
+      v_sltp s
+      LEFT JOIN f_risk(risk_balance) risk_fut ON s.symbol = risk_fut.symbol
+      LEFT JOIN risk_curr ON s.symbol = risk_curr.symbol
+      LEFT JOIN risk_dist ON s.symbol = risk_dist.symbol
+    WHERE
+      sl IS NOT NULL AND tp IS NOT NULL
+  )
+  SELECT
+    calc.symbol,
+    calc.qua
+  FROM
+      calc
+  WHERE
+    calc.qua != 0;
 END;
 $BODY$
 LANGUAGE plpgsql VOLATILE;
