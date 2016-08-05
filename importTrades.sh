@@ -10,7 +10,7 @@ psql -q -c "INSERT INTO trades(id, dt, symbol, price, qua, comm)
 SELECT
   id,
   to_timestamp(date || time, 'YYYYMMDDHH24:MI:SS') dt,
-  contract symbol,
+  symbol,
   price::NUMERIC,
   CASE
     WHEN action = 'SLD' THEN -1 * quantity::INTEGER
