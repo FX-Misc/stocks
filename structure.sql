@@ -139,7 +139,7 @@ CREATE TABLE sltp (
 
 CREATE TABLE symbols (
     id integer NOT NULL,
-    symbol character varying(10) NOT NULL
+    title character varying(10) NOT NULL
 );
 
 
@@ -275,6 +275,19 @@ CREATE VIEW v_pos AS
           WHERE (pos.qua <> 0)
           ORDER BY pos.symbol, pos.dt DESC) tmp
   WHERE (tmp.qua <> 0);
+
+
+--
+-- Name: v_sltp; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_sltp AS
+ SELECT DISTINCT ON (sltp.symbol) sltp.symbol,
+    sltp.sl,
+    sltp.tp,
+    sltp.lvg
+   FROM sltp
+  ORDER BY sltp.symbol, sltp.dt DESC;
 
 
 --
