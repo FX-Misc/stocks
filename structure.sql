@@ -290,6 +290,20 @@ CREATE VIEW v_quotes AS
 
 
 --
+-- Name: v_pnl; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_pnl AS
+ SELECT p.symbol,
+        CASE
+            WHEN (p.qua > 0) THEN ((p.qua)::numeric * (q.bid - p.price))
+            ELSE ((p.qua)::numeric * (q.ask - p.price))
+        END AS pnl
+   FROM (v_pos p
+     LEFT JOIN v_quotes q ON ((p.symbol = q.symbol)));
+
+
+--
 -- Name: v_sltp; Type: VIEW; Schema: public; Owner: -
 --
 
