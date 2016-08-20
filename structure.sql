@@ -203,6 +203,81 @@ ALTER SEQUENCE trades_id_seq OWNED BY trades.id;
 
 
 --
+-- Name: v_pos; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_pos AS
+ WITH RECURSIVE pos AS (
+         SELECT starting.id,
+            starting.symbol,
+            starting.dt,
+            starting.price,
+            starting.qua,
+            starting.comm,
+            starting.pnl,
+            starting.pos,
+            starting.p_price
+           FROM ( SELECT DISTINCT ON (t.symbol) t.id,
+                    t.symbol,
+                    t.dt,
+                    t.price,
+                    t.qua,
+                    t.comm,
+                    (0)::numeric AS pnl,
+                    t.qua AS pos,
+                    t.price AS p_price
+                   FROM trades t
+                  ORDER BY t.symbol, t.dt) starting
+        UNION ALL
+         SELECT n.id,
+            n.symbol,
+            n.dt,
+            n.price,
+            n.qua,
+            n.comm,
+            c.pnl,
+            (p.pos + n.qua),
+                CASE
+                    WHEN ((p.pos > 0) AND (n.qua > 0)) THEN (((p.p_price * (p.pos)::numeric) + (n.price * (n.qua)::numeric)) / ((p.pos + n.qua))::numeric)
+                    WHEN ((p.pos < 0) AND (n.qua < 0)) THEN (((p.p_price * (p.pos)::numeric) + (n.price * (n.qua)::numeric)) / ((p.pos + n.qua))::numeric)
+                    WHEN (((p.pos / n.qua) < 0) AND (p.pos > n.qua)) THEN p.p_price
+                    WHEN (((p.pos / n.qua) < 0) AND (p.pos < n.qua)) THEN n.price
+                    ELSE (0)::numeric
+                END AS "case"
+           FROM pos p,
+            LATERAL ( SELECT t.id,
+                    t.symbol,
+                    t.dt,
+                    t.price,
+                    t.qua,
+                    t.comm
+                   FROM trades t
+                  WHERE ((t.symbol = p.symbol) AND (t.dt > p.dt))
+                  ORDER BY t.dt
+                 LIMIT 1) n,
+            LATERAL ( SELECT
+                        CASE
+                            WHEN ((p.pos < 0) AND (n.qua > 0) AND ((- p.pos) > n.qua)) THEN ((n.qua)::numeric * (p.p_price - n.price))
+                            WHEN ((p.pos < 0) AND (n.qua > 0) AND ((- p.pos) < n.qua)) THEN ((p.pos)::numeric * (p.p_price - n.price))
+                            WHEN ((p.pos > 0) AND (n.qua < 0) AND (p.pos > (- n.qua))) THEN ((n.qua)::numeric * (p.p_price - n.price))
+                            WHEN ((p.pos > 0) AND (n.qua < 0) AND (p.pos < (- n.qua))) THEN ((p.pos)::numeric * (p.p_price - n.price))
+                            ELSE (0)::numeric
+                        END AS pnl,
+                    ((p.pos)::numeric * p.price) AS cb) c
+        )
+ SELECT tmp.symbol,
+    (tmp.qua)::bigint AS qua,
+    tmp.price
+   FROM ( SELECT DISTINCT ON (pos.symbol) pos.symbol,
+            pos.pos AS qua,
+            pos.p_price AS price
+           FROM pos
+          WHERE (pos.qua <> 0)
+          ORDER BY pos.symbol, pos.dt DESC) tmp
+  WHERE (tmp.qua <> 0);
+
+
+--
 -- Name: waves; Type: TABLE; Schema: public; Owner: -
 --
 
