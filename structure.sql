@@ -278,6 +278,18 @@ CREATE VIEW v_pos AS
 
 
 --
+-- Name: v_quotes; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW v_quotes AS
+ SELECT DISTINCT ON (quotes.symbol) quotes.symbol,
+    quotes.bid,
+    quotes.ask
+   FROM quotes
+  ORDER BY quotes.symbol, quotes.dt DESC;
+
+
+--
 -- Name: v_sltp; Type: VIEW; Schema: public; Owner: -
 --
 
