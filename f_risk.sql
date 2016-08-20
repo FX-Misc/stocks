@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION public.f_risk(in risk_balance numeric)
-  RETURNS TABLE(symbol varchar, risk numeric)
+  RETURNS TABLE(symbol int, risk numeric)
 AS
 $BODY$
 BEGIN

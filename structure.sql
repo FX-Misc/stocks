@@ -29,6 +29,26 @@ COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 
 SET search_path = public, pg_catalog;
 
+--
+-- Name: f_risk(numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION f_risk(risk_balance numeric) RETURNS TABLE(symbol integer, risk numeric)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    s.symbol,
+    trunc(risk_balance * s.lvg / SUM(s.lvg) OVER ()) risk
+  FROM
+    v_sltp s
+  WHERE
+    sl IS NOT NULL AND tp IS NOT NULL;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_with_oids = false;
