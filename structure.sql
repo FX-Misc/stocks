@@ -533,6 +533,13 @@ CREATE UNIQUE INDEX degrees_title_uindex ON degrees USING btree (title);
 
 
 --
+-- Name: symbols_title_uindex; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX symbols_title_uindex ON symbols USING btree (title);
+
+
+--
 -- Name: quotes_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
