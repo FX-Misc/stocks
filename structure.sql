@@ -59,7 +59,7 @@ $$;
 -- Name: f_pos_adj(numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION f_pos_adj(risk_balance numeric) RETURNS TABLE(symbol character varying, qua bigint)
+CREATE FUNCTION f_pos_adj(risk_balance numeric) RETURNS TABLE(symbol integer, qua bigint)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -80,19 +80,19 @@ $$;
 -- Name: f_pos_next(numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION f_pos_next(risk_balance numeric) RETURNS TABLE(symbol character varying, qua bigint)
+CREATE FUNCTION f_pos_next(risk_balance numeric) RETURNS TABLE(symbol integer, qua bigint)
     LANGUAGE plpgsql
     AS $$
 BEGIN
   RETURN QUERY
   WITH risk_curr AS (
     SELECT
-      v_pos.symbol,
-       ABS(v_pos.qua * (sl-price)) risk_curr,
+      v_sltp.symbol,
+      ABS(v_pos.qua * (sl-price)) risk_curr,
       v_pos.qua curr_qua
     FROM
-      v_pos
-      LEFT JOIN v_sltp ON v_pos.symbol = v_sltp.symbol
+      v_sltp
+      LEFT JOIN v_pos ON v_pos.symbol = v_sltp.symbol
   ), risk_dist AS (
     SELECT
       s.symbol,
@@ -136,7 +136,7 @@ $$;
 -- Name: f_risk(numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION f_risk(risk_balance numeric) RETURNS TABLE(symbol character varying, risk numeric)
+CREATE FUNCTION f_risk(risk_balance numeric) RETURNS TABLE(symbol integer, risk numeric)
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -157,15 +157,90 @@ SET default_tablespace = '';
 SET default_with_oids = false;
 
 --
+-- Name: degrees; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE degrees (
+    id integer NOT NULL,
+    title character varying(50) NOT NULL
+);
+
+
+--
+-- Name: COLUMN degrees.title; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN degrees.title IS 'EWA degrees';
+
+
+--
+-- Name: degrees_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE degrees_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: degrees_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE degrees_id_seq OWNED BY degrees.id;
+
+
+--
+-- Name: orders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE orders (
+    id character varying(50) NOT NULL,
+    symbol integer NOT NULL,
+    price numeric NOT NULL,
+    qua integer NOT NULL
+);
+
+
+--
 -- Name: quotes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE quotes (
-    symbol character varying(10) NOT NULL,
+    id integer NOT NULL,
+    symbol integer NOT NULL,
+    dt timestamp with time zone NOT NULL,
     bid numeric NOT NULL,
-    ask numeric NOT NULL,
-    dt timestamp with time zone DEFAULT now() NOT NULL
+    ask numeric
 );
+
+
+--
+-- Name: TABLE quotes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE quotes IS 'Time series';
+
+
+--
+-- Name: quotes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE quotes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: quotes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE quotes_id_seq OWNED BY quotes.id;
 
 
 --
@@ -173,12 +248,48 @@ CREATE TABLE quotes (
 --
 
 CREATE TABLE sltp (
+    symbol integer NOT NULL,
     dt timestamp with time zone DEFAULT now() NOT NULL,
-    symbol character varying(10) NOT NULL,
-    sl numeric,
-    tp numeric,
+    sl numeric(10,5) NOT NULL,
+    tp numeric(10,5),
     lvg numeric DEFAULT 1 NOT NULL
 );
+
+
+--
+-- Name: symbols; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE symbols (
+    id integer NOT NULL,
+    title character varying(10) NOT NULL
+);
+
+
+--
+-- Name: TABLE symbols; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE symbols IS 'Symbols';
+
+
+--
+-- Name: symbols_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE symbols_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: symbols_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE symbols_id_seq OWNED BY symbols.id;
 
 
 --
@@ -186,13 +297,32 @@ CREATE TABLE sltp (
 --
 
 CREATE TABLE trades (
-    id character varying(255) NOT NULL,
-    symbol character varying(10) NOT NULL,
+    id character varying(50) NOT NULL,
+    symbol integer NOT NULL,
+    dt timestamp with time zone NOT NULL,
     price numeric NOT NULL,
     qua integer NOT NULL,
-    dt timestamp with time zone,
     comm numeric DEFAULT 0 NOT NULL
 );
+
+
+--
+-- Name: trades_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE trades_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: trades_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE trades_id_seq OWNED BY trades.id;
 
 
 --
@@ -203,18 +333,18 @@ CREATE VIEW v_pos AS
  WITH RECURSIVE pos AS (
          SELECT starting.id,
             starting.symbol,
+            starting.dt,
             starting.price,
             starting.qua,
-            starting.dt,
             starting.comm,
             starting.pnl,
             starting.pos,
             starting.p_price
            FROM ( SELECT DISTINCT ON (t.symbol) t.id,
                     t.symbol,
+                    t.dt,
                     t.price,
                     t.qua,
-                    t.dt,
                     t.comm,
                     (0)::numeric AS pnl,
                     t.qua AS pos,
@@ -224,9 +354,9 @@ CREATE VIEW v_pos AS
         UNION ALL
          SELECT n.id,
             n.symbol,
+            n.dt,
             n.price,
             n.qua,
-            n.dt,
             n.comm,
             c.pnl,
             (p.pos + n.qua),
@@ -240,12 +370,12 @@ CREATE VIEW v_pos AS
            FROM pos p,
             LATERAL ( SELECT t.id,
                     t.symbol,
+                    t.dt,
                     t.price,
                     t.qua,
-                    t.dt,
                     t.comm
                    FROM trades t
-                  WHERE (((t.symbol)::text = (p.symbol)::text) AND (t.dt > p.dt))
+                  WHERE ((t.symbol = p.symbol) AND (t.dt > p.dt))
                   ORDER BY t.dt
                  LIMIT 1) n,
             LATERAL ( SELECT
@@ -293,7 +423,7 @@ CREATE VIEW v_pnl AS
             ELSE ((p.qua)::numeric * (q.ask - p.price))
         END AS pnl
    FROM (v_pos p
-     LEFT JOIN v_quotes q ON (((p.symbol)::text = (q.symbol)::text)));
+     LEFT JOIN v_quotes q ON ((p.symbol = q.symbol)));
 
 
 --
@@ -310,6 +440,97 @@ CREATE VIEW v_sltp AS
 
 
 --
+-- Name: waves; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE waves (
+    id integer NOT NULL,
+    degree integer NOT NULL,
+    start integer NOT NULL,
+    finish integer
+);
+
+
+--
+-- Name: waves_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE waves_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: waves_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE waves_id_seq OWNED BY waves.id;
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY degrees ALTER COLUMN id SET DEFAULT nextval('degrees_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY quotes ALTER COLUMN id SET DEFAULT nextval('quotes_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY symbols ALTER COLUMN id SET DEFAULT nextval('symbols_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY waves ALTER COLUMN id SET DEFAULT nextval('waves_id_seq'::regclass);
+
+
+--
+-- Name: degrees_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY degrees
+    ADD CONSTRAINT degrees_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY orders
+    ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: quotes_id_pk; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY quotes
+    ADD CONSTRAINT quotes_id_pk PRIMARY KEY (id);
+
+
+--
+-- Name: symbols_id_pk; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY symbols
+    ADD CONSTRAINT symbols_id_pk PRIMARY KEY (id);
+
+
+--
 -- Name: trades_id_pk; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -318,24 +539,81 @@ ALTER TABLE ONLY trades
 
 
 --
--- Name: quotes_symbol_index; Type: INDEX; Schema: public; Owner: -
+-- Name: waves_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-CREATE INDEX quotes_symbol_index ON quotes USING btree (symbol);
-
-
---
--- Name: sltp_symbol_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX sltp_symbol_index ON sltp USING btree (symbol);
+ALTER TABLE ONLY waves
+    ADD CONSTRAINT waves_pkey PRIMARY KEY (id);
 
 
 --
--- Name: trades_symbol_index; Type: INDEX; Schema: public; Owner: -
+-- Name: degrees_title_uindex; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX trades_symbol_index ON trades USING btree (symbol);
+CREATE UNIQUE INDEX degrees_title_uindex ON degrees USING btree (title);
+
+
+--
+-- Name: symbols_title_uindex; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX symbols_title_uindex ON symbols USING btree (title);
+
+
+--
+-- Name: quotes_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY quotes
+    ADD CONSTRAINT quotes_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
+
+
+--
+-- Name: sltp_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY sltp
+    ADD CONSTRAINT sltp_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
+
+
+--
+-- Name: trades_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY trades
+    ADD CONSTRAINT trades_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
+
+
+--
+-- Name: trades_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY orders
+    ADD CONSTRAINT trades_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
+
+
+--
+-- Name: waves_degrees_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY waves
+    ADD CONSTRAINT waves_degrees_id_fk FOREIGN KEY (degree) REFERENCES degrees(id);
+
+
+--
+-- Name: waves_ts_id2_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY waves
+    ADD CONSTRAINT waves_ts_id2_fk FOREIGN KEY (finish) REFERENCES quotes(id);
+
+
+--
+-- Name: waves_ts_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY waves
+    ADD CONSTRAINT waves_ts_id_fk FOREIGN KEY (start) REFERENCES quotes(id);
 
 
 --

@@ -1,17 +1,17 @@
 CREATE OR REPLACE FUNCTION public.f_pos_next(in risk_balance numeric)
-  RETURNS TABLE(symbol varchar, qua BIGINT)
+  RETURNS TABLE(symbol int, qua BIGINT)
 AS
 $BODY$
 BEGIN
   RETURN QUERY
   WITH risk_curr AS (
     SELECT
-      v_pos.symbol,
-       ABS(v_pos.qua * (sl-price)) risk_curr,
+      v_sltp.symbol,
+      ABS(v_pos.qua * (sl-price)) risk_curr,
       v_pos.qua curr_qua
     FROM
-      v_pos
-      LEFT JOIN v_sltp ON v_pos.symbol = v_sltp.symbol
+      v_sltp
+      LEFT JOIN v_pos ON v_pos.symbol = v_sltp.symbol
   ), risk_dist AS (
     SELECT
       s.symbol,

@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION public.f_pos_adj(in risk_balance numeric)
-  RETURNS TABLE(symbol varchar, qua BIGINT)
+  RETURNS TABLE(symbol int, qua BIGINT)
 AS
 $BODY$
 BEGIN

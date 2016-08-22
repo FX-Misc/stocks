@@ -5,7 +5,7 @@ WITH RECURSIVE pos AS
                t.*,  0::numeric  AS pnl,
                      qua         AS pos,
                      price       AS p_price
-           FROM public.trades AS t
+           FROM trades AS t
            ORDER BY symbol, dt
          ) AS starting
     UNION ALL
@@ -24,7 +24,7 @@ WITH RECURSIVE pos AS
         pos AS p,
         LATERAL
         ( SELECT t.* FROM trades AS t
-          WHERE t.symbol = p.symbol AND t.dt > p.dt ORDER BY t.dt  LIMIT 1
+          WHERE t.symbol = p.symbol AND t.dt > p.dt ORDER BY t.dt LIMIT 1
         ) AS n,
         LATERAL (
           SELECT
