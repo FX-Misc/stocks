@@ -56,10 +56,31 @@ $$;
 
 
 --
+-- Name: f_pos_adj(numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION f_pos_adj(risk_balance numeric) RETURNS TABLE(symbol integer, qua bigint)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    COALESCE(c.symbol, n.symbol)            AS symbol,
+    COALESCE(n.qua, 0) - COALESCE(c.qua, 0) AS adjust
+  FROM
+    v_pos c
+    FULL OUTER JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol
+  WHERE
+    COALESCE(n.qua, 0) - COALESCE(c.qua, 0) != 0;
+END;
+$$;
+
+
+--
 -- Name: f_pos_next(numeric); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION f_pos_next(risk_balance numeric) RETURNS TABLE(symbol character varying, qua bigint)
+CREATE FUNCTION f_pos_next(risk_balance numeric) RETURNS TABLE(symbol integer, qua bigint)
     LANGUAGE plpgsql
     AS $$
 BEGIN
