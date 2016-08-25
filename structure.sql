@@ -30,6 +30,44 @@ COMMENT ON EXTENSION plpgsql IS 'PL/pgSQL procedural language';
 SET search_path = public, pg_catalog;
 
 --
+-- Name: part; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE part AS ENUM (
+    'w1',
+    'w2',
+    'w3',
+    'w4',
+    'w5',
+    'a',
+    'b',
+    'c',
+    'w',
+    'x',
+    'y',
+    'x2',
+    'z'
+);
+
+
+--
+-- Name: wave; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE wave AS ENUM (
+    'impulse',
+    'leading',
+    'ending',
+    'correction',
+    'zigzag',
+    'flat',
+    'triangle',
+    'combo',
+    'triple'
+);
+
+
+--
 -- Name: f_comm(bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -202,6 +240,37 @@ CREATE TABLE orders (
     price numeric NOT NULL,
     qua integer NOT NULL
 );
+
+
+--
+-- Name: points; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE points (
+    id integer NOT NULL,
+    symbol integer NOT NULL,
+    dt timestamp with time zone NOT NULL,
+    price numeric NOT NULL
+);
+
+
+--
+-- Name: points_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE points_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: points_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE points_id_seq OWNED BY points.id;
 
 
 --
@@ -447,7 +516,13 @@ CREATE TABLE waves (
     id integer NOT NULL,
     degree integer NOT NULL,
     start integer NOT NULL,
-    finish integer
+    finish integer,
+    parent integer,
+    wave wave,
+    part part,
+    impulse boolean DEFAULT true NOT NULL,
+    new_column integer,
+    symbol integer NOT NULL
 );
 
 
@@ -475,6 +550,13 @@ ALTER SEQUENCE waves_id_seq OWNED BY waves.id;
 --
 
 ALTER TABLE ONLY degrees ALTER COLUMN id SET DEFAULT nextval('degrees_id_seq'::regclass);
+
+
+--
+-- Name: id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY points ALTER COLUMN id SET DEFAULT nextval('points_id_seq'::regclass);
 
 
 --
@@ -512,6 +594,14 @@ ALTER TABLE ONLY degrees
 
 ALTER TABLE ONLY orders
     ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: points_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY points
+    ADD CONSTRAINT points_pkey PRIMARY KEY (id);
 
 
 --
@@ -561,6 +651,14 @@ CREATE UNIQUE INDEX symbols_title_uindex ON symbols USING btree (title);
 
 
 --
+-- Name: points_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY points
+    ADD CONSTRAINT points_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
+
+
+--
 -- Name: quotes_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -601,19 +699,27 @@ ALTER TABLE ONLY waves
 
 
 --
--- Name: waves_ts_id2_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: waves_points_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY waves
-    ADD CONSTRAINT waves_ts_id2_fk FOREIGN KEY (finish) REFERENCES quotes(id);
+    ADD CONSTRAINT waves_points_id_fk FOREIGN KEY (finish) REFERENCES points(id);
 
 
 --
--- Name: waves_ts_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: waves_points_id_fk2; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY waves
-    ADD CONSTRAINT waves_ts_id_fk FOREIGN KEY (start) REFERENCES quotes(id);
+    ADD CONSTRAINT waves_points_id_fk2 FOREIGN KEY (start) REFERENCES points(id);
+
+
+--
+-- Name: waves_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY waves
+    ADD CONSTRAINT waves_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
 
 
 --
