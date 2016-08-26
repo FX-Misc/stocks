@@ -243,37 +243,6 @@ CREATE TABLE orders (
 
 
 --
--- Name: points; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE points (
-    id integer NOT NULL,
-    symbol integer NOT NULL,
-    dt timestamp with time zone NOT NULL,
-    price numeric NOT NULL
-);
-
-
---
--- Name: points_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE points_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: points_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE points_id_seq OWNED BY points.id;
-
-
---
 -- Name: quotes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -514,15 +483,17 @@ CREATE VIEW v_sltp AS
 
 CREATE TABLE waves (
     id integer NOT NULL,
+    symbol integer NOT NULL,
+    mw_id integer DEFAULT 0 NOT NULL,
+    mw_parent integer,
     degree integer NOT NULL,
-    start integer NOT NULL,
-    finish integer,
-    parent integer,
     wave wave,
     part part,
     impulse boolean DEFAULT true NOT NULL,
-    new_column integer,
-    symbol integer NOT NULL
+    start_dt timestamp with time zone NOT NULL,
+    start_price numeric NOT NULL,
+    finish_dt timestamp with time zone,
+    finish_price numeric
 );
 
 
@@ -550,13 +521,6 @@ ALTER SEQUENCE waves_id_seq OWNED BY waves.id;
 --
 
 ALTER TABLE ONLY degrees ALTER COLUMN id SET DEFAULT nextval('degrees_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY points ALTER COLUMN id SET DEFAULT nextval('points_id_seq'::regclass);
 
 
 --
@@ -594,14 +558,6 @@ ALTER TABLE ONLY degrees
 
 ALTER TABLE ONLY orders
     ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
-
-
---
--- Name: points_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY points
-    ADD CONSTRAINT points_pkey PRIMARY KEY (id);
 
 
 --
@@ -651,14 +607,6 @@ CREATE UNIQUE INDEX symbols_title_uindex ON symbols USING btree (title);
 
 
 --
--- Name: points_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY points
-    ADD CONSTRAINT points_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
-
-
---
 -- Name: quotes_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -696,22 +644,6 @@ ALTER TABLE ONLY orders
 
 ALTER TABLE ONLY waves
     ADD CONSTRAINT waves_degrees_id_fk FOREIGN KEY (degree) REFERENCES degrees(id);
-
-
---
--- Name: waves_points_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY waves
-    ADD CONSTRAINT waves_points_id_fk FOREIGN KEY (finish) REFERENCES points(id);
-
-
---
--- Name: waves_points_id_fk2; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY waves
-    ADD CONSTRAINT waves_points_id_fk2 FOREIGN KEY (start) REFERENCES points(id);
 
 
 --
