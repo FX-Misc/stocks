@@ -42,6 +42,8 @@ CREATE TYPE part AS ENUM (
     'a',
     'b',
     'c',
+    'd',
+    'e',
     'w',
     'x',
     'y',
@@ -485,14 +487,13 @@ CREATE TABLE waves (
     id integer NOT NULL,
     symbol integer NOT NULL,
     mw_id integer DEFAULT 0 NOT NULL,
-    mw_parent integer,
+    mw_parent integer NOT NULL,
     degree integer NOT NULL,
     wave wave,
     part part,
-    impulse boolean DEFAULT true NOT NULL,
-    start_dt timestamp with time zone NOT NULL,
+    start_dt timestamp without time zone NOT NULL,
     start_price numeric NOT NULL,
-    finish_dt timestamp with time zone,
+    finish_dt timestamp without time zone,
     finish_price numeric
 );
 
@@ -604,6 +605,13 @@ CREATE UNIQUE INDEX degrees_title_uindex ON degrees USING btree (title);
 --
 
 CREATE UNIQUE INDEX symbols_title_uindex ON symbols USING btree (title);
+
+
+--
+-- Name: waves_start_dt_start_price_finish_price_finish_dt_symbol_uindex; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX waves_start_dt_start_price_finish_price_finish_dt_symbol_uindex ON waves USING btree (start_dt, start_price, finish_price, finish_dt, symbol);
 
 
 --
