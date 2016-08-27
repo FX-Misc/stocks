@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	// DB
 	_ "github.com/lib/pq"
 
 	"github.com/apex/log"
@@ -444,7 +445,7 @@ func (m *Markup) SaveWaves() error {
 			0,
 			i.ID,
 			i.Degree,
-			nil,
+			"impulse",
 			"a",
 			i.Origin.T,
 			i.Origin.P,
@@ -792,7 +793,11 @@ func (m *Markup) SaveWaves() error {
 				return err
 			}
 		}
+	}
 
+	_, err = db.Exec("SELECT f_corrections()")
+	if err != nil {
+		return err
 	}
 
 	return nil

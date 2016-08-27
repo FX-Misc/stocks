@@ -25,7 +25,7 @@ var _ = Describe("Functions", func() {
 		Expect(mw.ImportMWML(path)).Should(Succeed())
 	})
 
-	FIt("SaveWaves", func() {
+	It("SaveWaves", func() {
 		mw := motivewave.NewMarkup("SPX500USD")
 		Expect(mw.ImportMWML(path)).Should(Succeed())
 		Expect(mw.SaveWaves()).Should(Succeed())

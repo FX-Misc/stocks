@@ -1,5 +1,6 @@
 package motivewave
 
+//Markup MW
 type Markup struct {
 	Symbol          string
 	Impulses        []Impulse     `xml:"graph>impulse"`
@@ -11,11 +12,13 @@ type Markup struct {
 	TripleCombo     []ComboTriple `xml:"graph>triple_combo"`
 }
 
+//Point MW
 type Point struct {
 	T int64   `xml:"time,attr"`
 	P float64 `xml:"value,attr"`
 }
 
+//Impulse MW
 type Impulse struct {
 	ID       int64  `xml:"id,attr"`
 	ParentID int64  `xml:"parentId,attr"`
@@ -29,6 +32,7 @@ type Impulse struct {
 	Wave5  Point `xml:"wave5"`
 }
 
+//Correction MW
 type Correction struct {
 	ID       int64  `xml:"id,attr"`
 	ParentID int64  `xml:"parentId,attr"`
@@ -40,6 +44,7 @@ type Correction struct {
 	WaveC  Point `xml:"waveC"`
 }
 
+//ComboTriple MW
 type ComboTriple struct {
 	ID       int64  `xml:"id,attr"`
 	ParentID int64  `xml:"parentId,attr"`
@@ -53,6 +58,7 @@ type ComboTriple struct {
 	WaveZ  Point `xml:"waveZ"`
 }
 
+//Combo MW
 type Combo struct {
 	ID       int64  `xml:"id,attr"`
 	ParentID int64  `xml:"parentId,attr"`
@@ -64,6 +70,7 @@ type Combo struct {
 	WaveY  Point `xml:"waveY"`
 }
 
+//Triangle MW
 type Triangle struct {
 	ID       int64  `xml:"id,attr"`
 	ParentID int64  `xml:"parentId,attr"`
