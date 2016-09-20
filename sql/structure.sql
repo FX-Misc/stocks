@@ -42,6 +42,8 @@ CREATE TYPE part AS ENUM (
     'a',
     'b',
     'c',
+    'd',
+    'e',
     'w',
     'x',
     'y',
@@ -90,6 +92,64 @@ SELECT CASE
          THEN FLOOR(LEAST((amt - 1.5) / dist, amt / (dist + 0.005))) :: BIGINT
        ELSE CEIL(GREATEST((amt - 1.5) / dist, amt / (dist - 0.005))) :: BIGINT
        END
+$$;
+
+
+--
+-- Name: f_corrections(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION f_corrections() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  ru INT DEFAULT 1;
+BEGIN
+
+    UPDATE
+      waves
+    SET
+      wave = 'correction'::wave
+    FROM
+      waves w
+      JOIN waves sw ON
+                      w.symbol = sw.symbol
+                      AND w.id != sw.id
+                      AND sw.start_dt >= w.start_dt
+                      AND sw.finish_dt <= w.finish_dt
+                      AND w.degree = sw.degree + 1
+    WHERE
+      w.id = waves.id
+      AND w.wave = 'impulse'
+      AND sw.part = 'b';
+
+    WHILE ru != 0 LOOP
+        WITH times AS (
+        UPDATE
+          waves
+        SET
+          wave = CASE
+                 WHEN sw.wave IN ('impulse', 'leading', 'ending')
+                   THEN 'zigzag' :: wave
+                 ELSE 'flat' :: wave
+                 END
+        FROM
+          waves w
+          JOIN waves sw ON
+                          w.symbol = sw.symbol
+                          AND w.id != sw.id
+                          AND sw.start_dt >= w.start_dt
+                          AND sw.finish_dt <= w.finish_dt
+                          AND w.degree = sw.degree + 1
+        WHERE
+          w.id = waves.id
+          AND w.wave = 'correction'
+          AND sw.part = 'a'
+        RETURNING 1
+      )
+      SELECT count(*) INTO ru from times;
+    END LOOP;
+END
 $$;
 
 
@@ -240,37 +300,6 @@ CREATE TABLE orders (
     price numeric NOT NULL,
     qua integer NOT NULL
 );
-
-
---
--- Name: points; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE points (
-    id integer NOT NULL,
-    symbol integer NOT NULL,
-    dt timestamp with time zone NOT NULL,
-    price numeric NOT NULL
-);
-
-
---
--- Name: points_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE points_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: points_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE points_id_seq OWNED BY points.id;
 
 
 --
@@ -514,15 +543,16 @@ CREATE VIEW v_sltp AS
 
 CREATE TABLE waves (
     id integer NOT NULL,
+    symbol integer NOT NULL,
+    mw_id integer DEFAULT 0 NOT NULL,
+    mw_parent integer NOT NULL,
     degree integer NOT NULL,
-    start integer NOT NULL,
-    finish integer,
-    parent integer,
     wave wave,
     part part,
-    impulse boolean DEFAULT true NOT NULL,
-    new_column integer,
-    symbol integer NOT NULL
+    start_dt timestamp without time zone NOT NULL,
+    start_price numeric NOT NULL,
+    finish_dt timestamp without time zone,
+    finish_price numeric
 );
 
 
@@ -550,13 +580,6 @@ ALTER SEQUENCE waves_id_seq OWNED BY waves.id;
 --
 
 ALTER TABLE ONLY degrees ALTER COLUMN id SET DEFAULT nextval('degrees_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY points ALTER COLUMN id SET DEFAULT nextval('points_id_seq'::regclass);
 
 
 --
@@ -594,14 +617,6 @@ ALTER TABLE ONLY degrees
 
 ALTER TABLE ONLY orders
     ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
-
-
---
--- Name: points_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY points
-    ADD CONSTRAINT points_pkey PRIMARY KEY (id);
 
 
 --
@@ -651,11 +666,10 @@ CREATE UNIQUE INDEX symbols_title_uindex ON symbols USING btree (title);
 
 
 --
--- Name: points_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: waves_start_dt_start_price_finish_price_finish_dt_symbol_uindex; Type: INDEX; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY points
-    ADD CONSTRAINT points_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
+CREATE UNIQUE INDEX waves_start_dt_start_price_finish_price_finish_dt_symbol_uindex ON waves USING btree (start_dt, start_price, finish_price, finish_dt, symbol);
 
 
 --
@@ -696,22 +710,6 @@ ALTER TABLE ONLY orders
 
 ALTER TABLE ONLY waves
     ADD CONSTRAINT waves_degrees_id_fk FOREIGN KEY (degree) REFERENCES degrees(id);
-
-
---
--- Name: waves_points_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY waves
-    ADD CONSTRAINT waves_points_id_fk FOREIGN KEY (finish) REFERENCES points(id);
-
-
---
--- Name: waves_points_id_fk2; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY waves
-    ADD CONSTRAINT waves_points_id_fk2 FOREIGN KEY (start) REFERENCES points(id);
 
 
 --
