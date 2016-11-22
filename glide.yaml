@@ -1,0 +1,10 @@
+package: github.com/santacruz123/stocks
+import:
+- package: github.com/apex/log
+  subpackages:
+  - handlers/text
+- package: github.com/joho/godotenv
+- package: github.com/lib/pq
+testImport:
+- package: github.com/onsi/ginkgo
+- package: github.com/onsi/gomega
