@@ -45,6 +45,10 @@ func (m *Markup) SaveWaves() error {
 
 	db.QueryRow("SELECT id FROM symbols WHERE title = $1::TEXT", m.Symbol).Scan(&symbolID)
 
+	if symbolID == 0 {
+		db.Exec("INSERT INTO symbols(title) VALUES($1::TEXT)", m.Symbol)
+	}
+
 	_, err = db.Exec("DELETE FROM waves WHERE symbol = $1", symbolID)
 	if err != nil {
 		return err

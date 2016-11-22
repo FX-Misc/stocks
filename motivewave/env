@@ -1,0 +1,3 @@
+PATH_MWML=/Users/santa/MotiveWave/Google/analysis/STOCK/SPY.NYSEARCA/Primary Analysis.mwml
+PGSSLMODE=disable
+PGDATABASE=stocks

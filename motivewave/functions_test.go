@@ -21,12 +21,12 @@ var _ = Describe("Functions", func() {
 	path := os.Getenv("PATH_MWML")
 
 	It("Import", func() {
-		mw := motivewave.NewMarkup("SPX500USD")
+		mw := motivewave.NewMarkup("SPY")
 		Expect(mw.ImportMWML(path)).Should(Succeed())
 	})
 
 	It("SaveWaves", func() {
-		mw := motivewave.NewMarkup("SPX500USD")
+		mw := motivewave.NewMarkup("SPY")
 		Expect(mw.ImportMWML(path)).Should(Succeed())
 		Expect(mw.SaveWaves()).Should(Succeed())
 	})
