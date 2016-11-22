@@ -81,6 +81,8 @@ func (m *Markup) SaveWaves() error {
 	}
 	defer subwavesStmt.Close()
 
+	//TODO Notify if zero waves in Markup
+
 	for _, i := range m.Impulses {
 
 		// Itself
