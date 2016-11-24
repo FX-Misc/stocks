@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 9.5.1
--- Dumped by pg_dump version 9.5.1
+-- Dumped from database version 9.5.4
+-- Dumped by pg_dump version 9.5.4
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -348,7 +348,7 @@ ALTER SEQUENCE quotes_id_seq OWNED BY quotes.id;
 CREATE TABLE sltp (
     symbol integer NOT NULL,
     dt timestamp with time zone DEFAULT now() NOT NULL,
-    sl numeric(10,5) NOT NULL,
+    sl numeric(10,5),
     tp numeric(10,5),
     lvg numeric DEFAULT 1 NOT NULL
 );
