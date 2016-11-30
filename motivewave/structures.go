@@ -10,6 +10,8 @@ type Markup struct {
 	Triangles       []Triangle    `xml:"graph>triangle"`
 	Combo           []Combo       `xml:"graph>combination"`
 	TripleCombo     []ComboTriple `xml:"graph>triple_combo"`
+	Guides          []Guide       `xml:"graph>guide"`
+	Markers         []Marker      `xml:"graph>marker"`
 }
 
 //Point MW
@@ -86,4 +88,15 @@ type Triangle struct {
 	WaveG  Point `xml:"waveG"`
 	WaveH  Point `xml:"waveH"`
 	WaveI  Point `xml:"waveI"`
+}
+
+//Guide from motivewave
+type Guide struct {
+	Price float64 `xml:"value,attr"`
+}
+
+//Marker
+type Marker struct {
+	Type        string `xml:"type,attr"`
+	Orientation string `xml:"orientation,attr"`
 }

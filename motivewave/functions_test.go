@@ -30,4 +30,10 @@ var _ = Describe("Functions", func() {
 		Expect(mw.ImportMWML(path)).Should(Succeed())
 		Expect(mw.SaveWaves()).Should(Succeed())
 	})
+
+	It("SaveSLTP", func() {
+		mw := motivewave.NewMarkup("SPY")
+		Expect(mw.ImportMWML(path)).Should(Succeed())
+		Expect(mw.SaveSLTP()).Should(Succeed())
+	})
 })

@@ -3,6 +3,7 @@ package motivewave
 import (
 	"database/sql"
 	"encoding/xml"
+	"errors"
 	"io/ioutil"
 	"os"
 
@@ -807,4 +808,74 @@ func (m *Markup) SaveWaves() error {
 	}
 
 	return nil
+}
+
+//SaveSLTP in db
+func (m *Markup) SaveSLTP() error {
+
+	db, err := sql.Open("postgres", "")
+	if err != nil {
+		return err
+	}
+
+	defer db.Close()
+
+	var symbolID int64
+
+	db.QueryRow("SELECT id FROM symbols WHERE title = $1::TEXT", m.Symbol).Scan(&symbolID)
+
+	if symbolID == 0 {
+		return errors.New("Missing symbol")
+	}
+
+	if len(m.Guides) != 2 {
+		return errors.New("Too many/few guide lines at " + m.Symbol)
+	}
+
+	if len(m.Markers) == 0 {
+		return errors.New("Missing markers at " + m.Symbol)
+	}
+
+	for _, marker := range m.Markers {
+		if m.Markers[0].Orientation != marker.Orientation {
+			return errors.New("Multi direction markers at " + m.Symbol)
+		}
+	}
+
+	var bid, ask float64
+
+	db.QueryRow("SELECT bid, ask FROM v_quotes WHERE symbol = $1::INT", symbolID).Scan(&bid, &ask)
+
+	if bid == 0 || ask == 0 {
+		return errors.New("Missing quotes for symbol " + m.Symbol)
+	}
+
+	var buy bool
+
+	if m.Markers[0].Type == "ARROW" && m.Markers[0].Orientation == "UP" {
+		buy = true
+	}
+
+	sl, tp := m.Guides[0].Price, m.Guides[1].Price
+
+	// Revert sl, tp
+
+	if buy && sl > bid {
+		tp, sl = sl, tp
+	}
+
+	_, err = db.Exec(
+		"INSERT INTO sltp(symbol, sl, tp, lvg) VALUES($1::INT, $2::NUMERIC, $3::NUMERIC, $4::NUMERIC * .1)",
+		symbolID, sl, tp, len(m.Markers))
+
+	context := log.WithFields(log.Fields{
+		"Sym": m.Symbol,
+		"SL":  sl,
+		"TP":  tp,
+		"Lev": len(m.Markers),
+	})
+
+	context.Info("SLTP")
+
+	return err
 }
