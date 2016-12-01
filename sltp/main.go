@@ -32,7 +32,7 @@ func main() {
 		}
 
 		symbol := strings.Split(f.Name(), ".")
-		mwml := path + "/" + symbol[0] + "/Trade.mwml"
+		mwml := path + "/" + f.Name() + "/Trade.mwml"
 
 		context := log.WithField("Symbol", symbol[0])
 

@@ -833,7 +833,21 @@ func (m *Markup) SaveSLTP() error {
 	}
 
 	if len(m.Markers) == 0 {
-		return errors.New("Missing markers at " + m.Symbol)
+
+		log.WithFields(log.Fields{
+			"Symbol": m.Symbol,
+			"SL":     0,
+			"TP":     0,
+			"Lev":    0,
+			"Action": "FLAT",
+		}).Info("SLTP")
+
+		_, err = db.Exec(
+			"INSERT INTO sltp(symbol, sl, tp, lvg) VALUES($1::INT, NULL, NULL, 0)",
+			symbolID,
+		)
+
+		return err
 	}
 
 	for _, marker := range m.Markers {
@@ -868,12 +882,18 @@ func (m *Markup) SaveSLTP() error {
 		"INSERT INTO sltp(symbol, sl, tp, lvg) VALUES($1::INT, $2::NUMERIC, $3::NUMERIC, $4::NUMERIC * .1)",
 		symbolID, sl, tp, len(m.Markers))
 
+	action := "SELL"
+
+	if buy {
+		action = "BUY"
+	}
+
 	context := log.WithFields(log.Fields{
 		"Symbol": m.Symbol,
 		"SL":     sl,
 		"TP":     tp,
 		"Lev":    len(m.Markers),
-		"Buy":    buy,
+		"Action": action,
 	})
 
 	context.Info("SLTP")
