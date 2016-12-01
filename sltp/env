@@ -1,0 +1,3 @@
+PATH_MWML=/Users/santa/MotiveWave/Google/analysis/STOCK
+PGSSLMODE=disable
+PGDATABASE=stocks

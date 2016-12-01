@@ -869,10 +869,11 @@ func (m *Markup) SaveSLTP() error {
 		symbolID, sl, tp, len(m.Markers))
 
 	context := log.WithFields(log.Fields{
-		"Sym": m.Symbol,
-		"SL":  sl,
-		"TP":  tp,
-		"Lev": len(m.Markers),
+		"Symbol": m.Symbol,
+		"SL":     sl,
+		"TP":     tp,
+		"Lev":    len(m.Markers),
+		"Buy":    buy,
 	})
 
 	context.Info("SLTP")
