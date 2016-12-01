@@ -822,7 +822,11 @@ func (m *Markup) SaveSLTP() error {
 
 	var symbolID int64
 
-	db.QueryRow("SELECT id FROM symbols WHERE title = $1::TEXT", m.Symbol).Scan(&symbolID)
+	err = db.QueryRow("SELECT id FROM symbols WHERE title = $1::TEXT", m.Symbol).Scan(&symbolID)
+
+	if err != nil {
+		log.Fatal(err.Error())
+	}
 
 	if symbolID == 0 {
 		return errors.New("Missing symbol")
