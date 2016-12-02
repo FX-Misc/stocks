@@ -847,7 +847,12 @@ func (m *Markup) SaveSLTP() error {
 		}).Info("SLTP")
 
 		_, err = db.Exec(
-			"INSERT INTO sltp(symbol, sl, tp, lvg) VALUES($1::INT, NULL, NULL, 0)",
+			`INSERT INTO
+				sltp(symbol, sl, tp, lvg)
+			SELECT
+				$1::INT, NULL, NULL, 0
+			WHERE
+				EXISTS(SELECT 1 FROM v_pos WHERE symbol = $1::INT)`,
 			symbolID,
 		)
 
@@ -882,9 +887,22 @@ func (m *Markup) SaveSLTP() error {
 		tp, sl = sl, tp
 	}
 
-	_, err = db.Exec(
-		"INSERT INTO sltp(symbol, sl, tp, lvg) VALUES($1::INT, $2::NUMERIC, $3::NUMERIC, $4::NUMERIC * .1)",
-		symbolID, sl, tp, len(m.Markers))
+	sltpQuery := `
+		INSERT INTO sltp(symbol, sl, tp, lvg)
+		SELECT
+			v.symbol, n.sl, n.tp, n.lvg
+		FROM
+			v_sltp v
+			JOIN (SELECT
+				$1::INT symbol,
+				$2::NUMERIC sl,
+				$3::NUMERIC tp,
+				.1 * $4::NUMERIC lvg
+			) as n ON v.symbol = n.symbol
+		WHERE
+			v.sl != n.sl OR v.sl != n.sl OR n.lvg != v.lvg`
+
+	_, err = db.Exec(sltpQuery, symbolID, sl, tp, len(m.Markers))
 
 	action := "SELL"
 
