@@ -3,6 +3,7 @@ import:
 - package: github.com/apex/log
   subpackages:
   - handlers/text
+- package: github.com/gofinance/ib
 - package: github.com/joho/godotenv
 - package: github.com/lib/pq
 testImport:
