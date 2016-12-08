@@ -15,9 +15,15 @@ import (
 	"github.com/gofinance/ib"
 )
 
-var engine *ib.Engine
-var orderID int64
-var engineReady chan bool
+var (
+	engine      *ib.Engine
+	orderID     int64
+	engineReady = make(chan bool)
+	positionEnd = make(chan bool)
+	ibPositions = make(map[ib.PositionKey]*ib.Position)
+	riskAmount  uint64
+	gateway     string
+)
 
 //NextID getting ID
 func NextID() int64 {
@@ -80,6 +86,12 @@ func order(symbol string, qua int64, price float64, gtc bool) {
 	log.Infof("%s %d %s @ %s", request.Order.Action, request.Order.TotalQty, symbol, priceLog)
 }
 
+func getCurrentPositions() {
+	ibPositions = make(map[ib.PositionKey]*ib.Position)
+	engine.Send(&ib.RequestPositions{})
+	<-positionEnd
+}
+
 func engineLoop(ibmanager *ib.Engine) {
 	engs := make(chan ib.EngineState)
 	rc := make(chan ib.Reply)
@@ -105,6 +117,14 @@ func engineLoop(ibmanager *ib.Engine) {
 				log.Debugf("OrderId=%v", orderID)
 				engineReady <- true
 
+			case (*ib.Position):
+				pos := r.(*ib.Position)
+				log.Debugf("Position=%+v", pos)
+				ibPositions[pos.Key] = pos
+
+			case (*ib.PositionEnd):
+				positionEnd <- true
+
 			default:
 				log.Debugf("%#v\n", r)
 			}
@@ -124,7 +144,7 @@ type position struct {
 	Qua    int64
 }
 
-func getNextPositions(riskAmount int64) (positions []position, err error) {
+func getNextPositions(riskAmount uint64) (positions []position, err error) {
 
 	db, err := sql.Open("postgres", "")
 	if err != nil {
@@ -169,15 +189,26 @@ func getNextPositions(riskAmount int64) (positions []position, err error) {
 	return
 }
 
+func getIBPositionAmountBySymbol(symbol string) float64 {
+	for k := range ibPositions {
+		if ibPositions[k].Contract.Symbol == symbol && ibPositions[k].Contract.SecurityType == "STK" {
+			return ibPositions[k].Position
+		}
+	}
+	return 0
+}
+
 func main() {
 	godotenv.Load()
 
+	gateway = os.Getenv("IBGATEWAY")
+
+	if s, err := strconv.Atoi(os.Getenv("RISK_AMT")); err == nil {
+		riskAmount = uint64(s)
+	}
+
 	log.SetHandler(text.New(os.Stdout))
 	log.SetLevel(log.InfoLevel)
-
-	engineReady = make(chan bool)
-
-	gateway := os.Getenv("IBGATEWAY")
 
 	var err error
 	engine, err = ib.NewEngine(ib.EngineOptions{Gateway: gateway})
@@ -199,12 +230,18 @@ func main() {
 
 	<-engineReady
 
-	// Getting
+	getCurrentPositions()
 
-	positions, err := getNextPositions(2000)
+	log.Infof("Risk amount = %v", riskAmount)
 
-	for _, pos := range positions {
-		time.Sleep(time.Second)
-		order(pos.Symbol, pos.Qua, 0, true)
+	nextPositions, err := getNextPositions(riskAmount)
+
+	for _, pos := range nextPositions {
+		currQua := getIBPositionAmountBySymbol(pos.Symbol)
+		if orderQua := pos.Qua - int64(currQua); orderQua != 0 {
+			order(pos.Symbol, orderQua, 0, true)
+		}
 	}
+
+	time.Sleep(time.Second * 2)
 }
