@@ -23,6 +23,7 @@ var (
 	ibPositions = make(map[ib.PositionKey]*ib.Position)
 	riskAmount  uint64
 	gateway     string
+	dryrun      string
 )
 
 //NextID getting ID
@@ -82,7 +83,10 @@ func order(symbol string, qua int64, price float64, gtc bool) {
 
 	request.SetID(NextID())
 
-	engine.Send(&request)
+	if dryrun == "" {
+		engine.Send(&request)
+	}
+
 	log.Infof("%s %d %s @ %s", request.Order.Action, request.Order.TotalQty, symbol, priceLog)
 }
 
@@ -202,6 +206,7 @@ func main() {
 	godotenv.Load()
 
 	gateway = os.Getenv("IBGATEWAY")
+	dryrun = os.Getenv("DRY")
 
 	if s, err := strconv.Atoi(os.Getenv("RISK_AMT")); err == nil {
 		riskAmount = uint64(s)
@@ -242,6 +247,8 @@ func main() {
 			order(pos.Symbol, orderQua, 0, true)
 		}
 	}
+
+	//TODO close current that that not in next ones
 
 	time.Sleep(time.Second * 2)
 }
