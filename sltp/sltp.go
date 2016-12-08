@@ -42,6 +42,7 @@ func main() {
 		}
 
 		markup := motivewave.Markup{Symbol: symbol[0]}
+		markup.CreateSymbol()
 
 		if err := markup.ImportMWML(mwml); err != nil {
 			context.Error(err.Error())

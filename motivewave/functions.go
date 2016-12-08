@@ -810,6 +810,29 @@ func (m *Markup) SaveWaves() error {
 	return nil
 }
 
+//CreateSymbol creates/fetches symbolID
+func (m *Markup) CreateSymbol() (symbolID int64) {
+	db, err := sql.Open("postgres", "")
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	defer db.Close()
+
+	query := "INSERT INTO symbols(title) VALUES ($1::TEXT) ON CONFLICT DO NOTHING"
+	_, err = db.Exec(query, m.Symbol)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	err = db.QueryRow("SELECT id FROM symbols WHERE title = $1::TEXT", m.Symbol).Scan(&symbolID)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	return
+}
+
 //SaveSLTP in db
 func (m *Markup) SaveSLTP() error {
 
