@@ -875,7 +875,7 @@ func (m *Markup) SaveSLTP() error {
 			SELECT
 				$1::INT, NULL, NULL, 0
 			WHERE
-				EXISTS(SELECT 1 FROM v_pos WHERE symbol = $1::INT)`,
+				EXISTS(SELECT 1 FROM v_sltp WHERE symbol = $1::INT AND sl IS NOT NULL AND tp IS NOT NULL)`,
 			symbolID,
 		)
 
