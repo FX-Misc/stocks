@@ -855,11 +855,7 @@ func (m *Markup) SaveSLTP() error {
 		return errors.New("Missing symbol")
 	}
 
-	if len(m.Guides) != 2 {
-		return errors.New("Too many/few guide lines at " + m.Symbol)
-	}
-
-	if len(m.Markers) == 0 {
+	if len(m.Markers) == 0 || len(m.Guides) == 0 {
 
 		log.WithFields(log.Fields{
 			"Symbol": m.Symbol,
@@ -882,18 +878,14 @@ func (m *Markup) SaveSLTP() error {
 		return err
 	}
 
+	if len(m.Guides) > 0 && len(m.Guides) != 2 {
+		return errors.New("Too few/many guide lines at " + m.Symbol)
+	}
+
 	for _, marker := range m.Markers {
 		if m.Markers[0].Orientation != marker.Orientation {
 			return errors.New("Multi direction markers at " + m.Symbol)
 		}
-	}
-
-	var bid, ask float64
-
-	db.QueryRow("SELECT bid, ask FROM v_quotes WHERE symbol = $1::INT", symbolID).Scan(&bid, &ask)
-
-	if bid == 0 || ask == 0 {
-		return errors.New("Missing quotes for symbol " + m.Symbol)
 	}
 
 	var buy bool
@@ -906,24 +898,24 @@ func (m *Markup) SaveSLTP() error {
 
 	// Revert sl, tp
 
-	if buy && sl > bid {
+	if buy && sl > tp {
 		tp, sl = sl, tp
 	}
 
 	sltpQuery := `
 		INSERT INTO sltp(symbol, sl, tp, lvg)
 		SELECT
-			v.symbol, n.sl, n.tp, n.lvg
+			n.symbol, n.sl, n.tp, n.lvg
 		FROM
-			v_sltp v
-			JOIN (SELECT
+			(SELECT
 				$1::INT symbol,
 				$2::NUMERIC sl,
 				$3::NUMERIC tp,
 				.1 * $4::NUMERIC lvg
-			) as n ON v.symbol = n.symbol
+			) as n
+			LEFT JOIN v_sltp v ON v.symbol = n.symbol
 		WHERE
-			v.sl != n.sl OR v.sl != n.sl OR n.lvg != v.lvg`
+			v.symbol IS NULL OR (v.sl != n.sl OR v.sl != n.sl OR n.lvg != v.lvg)`
 
 	_, err = db.Exec(sltpQuery, symbolID, sl, tp, len(m.Markers))
 

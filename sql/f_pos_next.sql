@@ -6,12 +6,12 @@ BEGIN
   RETURN QUERY
   WITH risk_curr AS (
     SELECT
-      v_sltp.symbol,
-      ABS(v_pos.qua * (sl-price)) risk_curr,
-      v_pos.qua curr_qua
+      s.symbol,
+      ABS(p.qua * (sl-price)) risk_curr,
+      p.qua curr_qua
     FROM
-      v_sltp
-      LEFT JOIN v_pos ON v_pos.symbol = v_sltp.symbol
+      v_sltp s
+      LEFT JOIN positions p ON p.symbol = s.symbol
   ), risk_dist AS (
     SELECT
       s.symbol,
@@ -21,7 +21,7 @@ BEGIN
       END risk_dist
     FROM
       v_sltp s
-      LEFT JOIN v_quotes q ON s.symbol = q.symbol
+      LEFT JOIN symbols q ON s.symbol = q.id
     WHERE
       s.sl IS NOT NULL AND s.tp IS NOT NULL
   ), calc AS (

@@ -166,7 +166,7 @@ BEGIN
     COALESCE(c.symbol, n.symbol)            AS symbol,
     COALESCE(n.qua, 0) - COALESCE(c.qua, 0) AS adjust
   FROM
-    v_pos c
+    positions c
     FULL OUTER JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol
   WHERE
     COALESCE(n.qua, 0) - COALESCE(c.qua, 0) != 0;
@@ -185,12 +185,12 @@ BEGIN
   RETURN QUERY
   WITH risk_curr AS (
     SELECT
-      v_sltp.symbol,
-      ABS(v_pos.qua * (sl-price)) risk_curr,
-      v_pos.qua curr_qua
+      s.symbol,
+      ABS(p.qua * (sl-price)) risk_curr,
+      p.qua curr_qua
     FROM
-      v_sltp
-      LEFT JOIN v_pos ON v_pos.symbol = v_sltp.symbol
+      v_sltp s
+      LEFT JOIN positions p ON p.symbol = s.symbol
   ), risk_dist AS (
     SELECT
       s.symbol,
@@ -200,7 +200,7 @@ BEGIN
       END risk_dist
     FROM
       v_sltp s
-      LEFT JOIN v_quotes q ON s.symbol = q.symbol
+      LEFT JOIN symbols q ON s.symbol = q.id
     WHERE
       s.sl IS NOT NULL AND s.tp IS NOT NULL
   ), calc AS (
@@ -303,42 +303,21 @@ CREATE TABLE orders (
 
 
 --
--- Name: quotes; Type: TABLE; Schema: public; Owner: -
+-- Name: positions; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE quotes (
-    id integer NOT NULL,
+CREATE TABLE positions (
     symbol integer NOT NULL,
-    dt timestamp with time zone NOT NULL,
-    bid numeric NOT NULL,
-    ask numeric
+    qua integer NOT NULL,
+    price numeric NOT NULL
 );
 
 
 --
--- Name: TABLE quotes; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE positions; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE quotes IS 'Time series';
-
-
---
--- Name: quotes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE quotes_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: quotes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE quotes_id_seq OWNED BY quotes.id;
+COMMENT ON TABLE positions IS 'Positions';
 
 
 --
@@ -360,7 +339,9 @@ CREATE TABLE sltp (
 
 CREATE TABLE symbols (
     id integer NOT NULL,
-    title character varying(10) NOT NULL
+    title character varying(10) NOT NULL,
+    bid numeric,
+    ask numeric
 );
 
 
@@ -391,137 +372,18 @@ ALTER SEQUENCE symbols_id_seq OWNED BY symbols.id;
 
 
 --
--- Name: trades; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE trades (
-    id character varying(50) NOT NULL,
-    symbol integer NOT NULL,
-    dt timestamp with time zone NOT NULL,
-    price numeric NOT NULL,
-    qua integer NOT NULL,
-    comm numeric DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: trades_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE trades_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: trades_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE trades_id_seq OWNED BY trades.id;
-
-
---
--- Name: v_pos; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW v_pos AS
- WITH RECURSIVE pos AS (
-         SELECT starting.id,
-            starting.symbol,
-            starting.dt,
-            starting.price,
-            starting.qua,
-            starting.comm,
-            starting.pnl,
-            starting.pos,
-            starting.p_price
-           FROM ( SELECT DISTINCT ON (t.symbol) t.id,
-                    t.symbol,
-                    t.dt,
-                    t.price,
-                    t.qua,
-                    t.comm,
-                    (0)::numeric AS pnl,
-                    t.qua AS pos,
-                    t.price AS p_price
-                   FROM trades t
-                  ORDER BY t.symbol, t.dt) starting
-        UNION ALL
-         SELECT n.id,
-            n.symbol,
-            n.dt,
-            n.price,
-            n.qua,
-            n.comm,
-            c.pnl,
-            (p.pos + n.qua),
-                CASE
-                    WHEN ((p.pos > 0) AND (n.qua > 0)) THEN (((p.p_price * (p.pos)::numeric) + (n.price * (n.qua)::numeric)) / ((p.pos + n.qua))::numeric)
-                    WHEN ((p.pos < 0) AND (n.qua < 0)) THEN (((p.p_price * (p.pos)::numeric) + (n.price * (n.qua)::numeric)) / ((p.pos + n.qua))::numeric)
-                    WHEN (((p.pos / n.qua) < 0) AND (p.pos > n.qua)) THEN p.p_price
-                    WHEN (((p.pos / n.qua) < 0) AND (p.pos < n.qua)) THEN n.price
-                    ELSE (0)::numeric
-                END AS "case"
-           FROM pos p,
-            LATERAL ( SELECT t.id,
-                    t.symbol,
-                    t.dt,
-                    t.price,
-                    t.qua,
-                    t.comm
-                   FROM trades t
-                  WHERE ((t.symbol = p.symbol) AND (t.dt > p.dt))
-                  ORDER BY t.dt
-                 LIMIT 1) n,
-            LATERAL ( SELECT
-                        CASE
-                            WHEN ((p.pos < 0) AND (n.qua > 0) AND ((- p.pos) > n.qua)) THEN ((n.qua)::numeric * (p.p_price - n.price))
-                            WHEN ((p.pos < 0) AND (n.qua > 0) AND ((- p.pos) < n.qua)) THEN ((p.pos)::numeric * (p.p_price - n.price))
-                            WHEN ((p.pos > 0) AND (n.qua < 0) AND (p.pos > (- n.qua))) THEN ((n.qua)::numeric * (p.p_price - n.price))
-                            WHEN ((p.pos > 0) AND (n.qua < 0) AND (p.pos < (- n.qua))) THEN ((p.pos)::numeric * (p.p_price - n.price))
-                            ELSE (0)::numeric
-                        END AS pnl,
-                    ((p.pos)::numeric * p.price) AS cb) c
-        )
- SELECT tmp.symbol,
-    (tmp.qua)::bigint AS qua,
-    tmp.price
-   FROM ( SELECT DISTINCT ON (pos.symbol) pos.symbol,
-            pos.pos AS qua,
-            pos.p_price AS price
-           FROM pos
-          WHERE (pos.qua <> 0)
-          ORDER BY pos.symbol, pos.dt DESC) tmp
-  WHERE (tmp.qua <> 0);
-
-
---
--- Name: v_quotes; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW v_quotes AS
- SELECT DISTINCT ON (quotes.symbol) quotes.symbol,
-    quotes.bid,
-    quotes.ask
-   FROM quotes
-  ORDER BY quotes.symbol, quotes.dt DESC;
-
-
---
 -- Name: v_pnl; Type: VIEW; Schema: public; Owner: -
 --
 
 CREATE VIEW v_pnl AS
  SELECT p.symbol,
+    s.title,
         CASE
-            WHEN (p.qua > 0) THEN ((p.qua)::numeric * (q.bid - p.price))
-            ELSE ((p.qua)::numeric * (q.ask - p.price))
+            WHEN (p.qua > 0) THEN ((p.qua)::numeric * (s.bid - p.price))
+            ELSE ((p.qua)::numeric * (s.ask - p.price))
         END AS pnl
-   FROM (v_pos p
-     LEFT JOIN v_quotes q ON ((p.symbol = q.symbol)));
+   FROM (positions p
+     LEFT JOIN symbols s ON ((p.symbol = s.id)));
 
 
 --
@@ -586,13 +448,6 @@ ALTER TABLE ONLY degrees ALTER COLUMN id SET DEFAULT nextval('degrees_id_seq'::r
 -- Name: id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY quotes ALTER COLUMN id SET DEFAULT nextval('quotes_id_seq'::regclass);
-
-
---
--- Name: id; Type: DEFAULT; Schema: public; Owner: -
---
-
 ALTER TABLE ONLY symbols ALTER COLUMN id SET DEFAULT nextval('symbols_id_seq'::regclass);
 
 
@@ -620,11 +475,11 @@ ALTER TABLE ONLY orders
 
 
 --
--- Name: quotes_id_pk; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: positions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY quotes
-    ADD CONSTRAINT quotes_id_pk PRIMARY KEY (id);
+ALTER TABLE ONLY positions
+    ADD CONSTRAINT positions_pkey PRIMARY KEY (symbol);
 
 
 --
@@ -633,14 +488,6 @@ ALTER TABLE ONLY quotes
 
 ALTER TABLE ONLY symbols
     ADD CONSTRAINT symbols_id_pk PRIMARY KEY (id);
-
-
---
--- Name: trades_id_pk; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY trades
-    ADD CONSTRAINT trades_id_pk PRIMARY KEY (id);
 
 
 --
@@ -673,11 +520,11 @@ CREATE UNIQUE INDEX waves_start_dt_start_price_finish_price_finish_dt_symbol_uin
 
 
 --
--- Name: quotes_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: positions_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY quotes
-    ADD CONSTRAINT quotes_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
+ALTER TABLE ONLY positions
+    ADD CONSTRAINT positions_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
 
 
 --
@@ -686,14 +533,6 @@ ALTER TABLE ONLY quotes
 
 ALTER TABLE ONLY sltp
     ADD CONSTRAINT sltp_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
-
-
---
--- Name: trades_symbols_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY trades
-    ADD CONSTRAINT trades_symbols_id_fk FOREIGN KEY (symbol) REFERENCES symbols(id);
 
 
 --

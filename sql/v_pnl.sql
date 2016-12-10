@@ -1,10 +1,11 @@
 CREATE OR REPLACE VIEW v_pnl AS
 SELECT
   p.symbol,
+  s.title,
   CASE
-      WHEN p.qua > 0 THEN p.qua * (q.bid - p.price)
-      ELSE p.qua * (q.ask - p.price)
+      WHEN p.qua > 0 THEN p.qua * (s.bid - p.price)
+      ELSE p.qua * (s.ask - p.price)
   END pnl
 FROM
-  v_pos p
-  LEFT JOIN v_quotes q ON p.symbol = q.symbol
+  positions p
+  LEFT JOIN symbols s ON p.symbol = s.id
