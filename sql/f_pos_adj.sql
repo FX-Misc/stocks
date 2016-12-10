@@ -8,7 +8,7 @@ BEGIN
     COALESCE(c.symbol, n.symbol)            AS symbol,
     COALESCE(n.qua, 0) - COALESCE(c.qua, 0) AS adjust
   FROM
-    v_pos c
+    positions c
     FULL OUTER JOIN f_pos_next(risk_balance) n ON c.symbol = n.symbol
   WHERE
     COALESCE(n.qua, 0) - COALESCE(c.qua, 0) != 0;
