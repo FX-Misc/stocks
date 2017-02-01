@@ -25,14 +25,14 @@ func main() {
 	defer ib.Stop()
 
 	ib.RefreshPositions()
-	log.Infof("AAPL %v", ib.Position("AAPL"))
+	ib.RefreshQuotes()
 
 	np := ib.NextPositions()
 
 	log.Infof("NextPositions %#v", np)
 
 	for symbol, qua := range np {
-		currQua := ib.Position(symbol)
+		currQua, _ := ib.Position(symbol)
 		if orderQua := qua - currQua; orderQua != 0 {
 			ib.Order(symbol, int64(orderQua), 0, true)
 		}

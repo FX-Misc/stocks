@@ -15,11 +15,6 @@ import (
 
 type signal struct{}
 
-//Quote struct
-type Quote struct {
-	Bid, Ask float64
-}
-
 //Client struct
 type Client struct {
 	db *pg.DB
@@ -33,14 +28,13 @@ type Client struct {
 	dryRun     bool
 	riskAmount uint64
 
-	positions map[string]float64
-
 	//Positions
 
-	posMU   *sync.Mutex
-	posCh   chan signal
-	posCond *sync.Cond
-	posBool bool
+	posMU     *sync.Mutex
+	posCh     chan signal
+	posCond   *sync.Cond
+	posBool   bool
+	positions map[string]Position
 
 	//Quotes
 
@@ -65,7 +59,7 @@ func NewClient() (c *Client, err error) {
 
 	c.posMU = &sync.Mutex{}
 	c.posCh = make(chan signal)
-	c.positions = make(map[string]float64)
+	c.positions = make(map[string]Position)
 	c.posCond = &sync.Cond{L: &sync.Mutex{}}
 
 	c.quoteMU = &sync.Mutex{}
@@ -109,101 +103,6 @@ func NewClient() (c *Client, err error) {
 //Stop IB client
 func (c *Client) Stop() {
 	c.engine.Stop()
-}
-
-//RefreshPositions in one thread - others wait for result
-func (c *Client) RefreshPositions() {
-	c.posCond.L.Lock()
-	defer c.posCond.L.Unlock()
-
-	if c.posBool {
-		c.posCond.Wait()
-	} else {
-		c.posBool = true
-		c.posCond.L.Unlock()
-
-		c.engine.Send(&ib.RequestPositions{})
-		<-c.posCh
-		log.Debugf("Positions updated - %#v", c.positions)
-
-		c.posCond.L.Lock()
-		c.posBool = false
-		c.posCond.Broadcast()
-	}
-}
-
-//RefreshQuote for symbol
-func (c *Client) RefreshQuote(symbol string) {
-	c.quoteMU.Lock()
-
-	if ch, ok := c.quoteCh[symbol]; ok {
-		c.quoteMU.Unlock()
-		<-ch
-		return
-	}
-
-	ch := make(chan signal)
-	c.quoteCh[symbol] = ch
-
-	req := &ib.RequestMarketData{
-		Contract: c.NewContract(symbol),
-		Snapshot: true,
-	}
-
-	quoteID := c.nextID()
-
-	c.quoteReqSym[quoteID] = symbol
-	c.quotes[symbol] = &Quote{}
-	c.quoteMU.Unlock()
-
-	req.SetID(quoteID)
-
-	// log.Debugf("Quote request for %s - ID %d", req.Symbol, req.ID())
-
-	c.engine.Send(req)
-
-	<-ch
-}
-
-func (c *Client) saveQuote(symbol string) {
-	c.quoteMU.Lock()
-	bid, ask := c.quotes[symbol].Bid, c.quotes[symbol].Ask
-	c.quoteMU.Unlock()
-
-	_, err := c.db.Exec(
-		`UPDATE symbols SET bid = ?, ask = ? WHERE title = ?`, bid, ask, symbol,
-	)
-
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	return
-}
-
-//RefreshQuotes all
-func (c *Client) RefreshQuotes() {
-	type Symbol struct {
-		Title string
-	}
-	var symbols []Symbol
-
-	if err := c.db.Model(&symbols).Select(); err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	wg := new(sync.WaitGroup)
-	wg.Add(len(symbols))
-
-	for _, symbol := range symbols {
-		go func(s Symbol) {
-			c.RefreshQuote(s.Title)
-			wg.Done()
-		}(symbol)
-	}
-
-	wg.Wait()
-	log.Debug("RefreshQuotes Done")
 }
 
 func (c *Client) nextID() int64 {
@@ -266,42 +165,4 @@ func (c *Client) Order(symbol string, qua int64, price float64, gtc bool) {
 	}
 
 	log.Infof("%s %d %s @ %s", request.Order.Action, request.Order.TotalQty, symbol, priceLog)
-}
-
-//NextPositions getter
-func (c *Client) NextPositions() (pos map[string]float64) {
-	pos = make(map[string]float64)
-
-	type Position struct {
-		Symbol string
-		Qua    float64
-	}
-
-	var tmp []Position
-	_, err := c.db.Query(&tmp, `SELECT
-			s.title symbol,
-			x.qua
-	  FROM
-	    f_pos_next(?) as x
-	    LEFT JOIN symbols  as s ON x.symbol = s.id`, c.riskAmount)
-
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	for _, one := range tmp {
-		pos[one.Symbol] = one.Qua
-	}
-
-	return
-}
-
-//Position by symbol
-func (c *Client) Position(symbol string) float64 {
-	c.posMU.Lock()
-	defer c.posMU.Unlock()
-	if qua, ok := c.positions[symbol]; ok {
-		return qua
-	}
-	return 0
 }

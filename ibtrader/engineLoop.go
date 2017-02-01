@@ -35,9 +35,23 @@ func (c *Client) engineLoop() {
 				r, _ := r.(*ib.Position)
 				log.Debugf("Position=%+v", r)
 
+				pos := Position{
+					r.Contract.Symbol,
+					r.Position,
+					r.AverageCost,
+				}
+
 				c.posMU.Lock()
-				c.positions[r.Contract.Symbol] = r.Position
+				c.positions[r.Contract.Symbol] = pos
 				c.posMU.Unlock()
+
+				log.WithFields(log.Fields{
+					"Sym": pos.Symbol,
+					"Qua": pos.Qua,
+					"Avg": pos.Price,
+				}).Info("Position")
+
+				c.savePosition(pos)
 
 			case (*ib.TickPrice):
 				r, _ := r.(*ib.TickPrice)
@@ -54,6 +68,13 @@ func (c *Client) engineLoop() {
 					c.quotes[symbol].Bid = r.Price
 				case 2:
 					c.quotes[symbol].Ask = r.Price
+
+					log.WithFields(log.Fields{
+						"Sym": symbol,
+						"Bid": c.quotes[symbol].Bid,
+						"Ask": c.quotes[symbol].Ask,
+					}).Info("Quote")
+
 					release(c.quoteCh[symbol])
 					go c.saveQuote(symbol)
 				default:
