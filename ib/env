@@ -1,3 +1,0 @@
-PGSSLMODE=disable
-PGDATABASE=stocks
-IBGATEWAY=localhost:7497
