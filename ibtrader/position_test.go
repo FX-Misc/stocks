@@ -32,7 +32,7 @@ var _ = Describe("Position", func() {
 			ib.db.Exec(`TRUNCATE positions`)
 
 			pos := Position{
-				Symbol: "AAPL",
+				Symbol: "AAPL2",
 				Qua:    -100,
 				Price:  112,
 			}

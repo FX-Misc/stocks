@@ -37,7 +37,17 @@ func (c *Client) savePosition(pos Position) {
 	q := `INSERT INTO positions(symbol,qua,price)
 	SELECT id, ?, ? FROM symbols WHERE title = ?`
 
-	_, err := c.db.ExecOne(q, pos.Qua, pos.Price, pos.Symbol)
+	res, err := c.db.Exec(q, pos.Qua, pos.Price, pos.Symbol)
+	if err == nil && res.RowsAffected() == 0 {
+		_, err := c.db.Exec(`INSERT INTO symbols(title) VALUES(?)`, pos.Symbol)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		_, err = c.db.Exec(q, pos.Qua, pos.Price, pos.Symbol)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+	}
 
 	if err != nil {
 		log.Fatal(err.Error())
