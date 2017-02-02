@@ -1,0 +1,3 @@
+RISK=1000
+PG=postgres://localhost:5432/stocks?sslmode=disable
+IBGATEWAY=localhost:7497
