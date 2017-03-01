@@ -4,41 +4,55 @@ AS
 $BODY$
 BEGIN
   RETURN QUERY
-  WITH risk_curr AS (
+  WITH r_cur AS (
+--     CREATE TEMPORARY TABLE r_cur AS
     SELECT
-      s.symbol,
-      ABS(p.qua * (sl-price)) risk_curr,
-      p.qua curr_qua
+      s.id symbol,
+      COALESCE(CASE
+        WHEN p.qua > 0 THEN (s.bid - p.price) * p.qua
+        ELSE (p.price - s.ask) * -p.qua
+      END, 0) r_cur,
+      COALESCE(p.qua,0) qua
     FROM
-      v_sltp s
-      LEFT JOIN positions p ON p.symbol = s.symbol
-  ), risk_dist AS (
+      symbols s
+      LEFT JOIN positions p ON p.symbol = s.id
+  ), r_dis AS (
+--     CREATE TEMPORARY TABLE r_dis AS
     SELECT
       s.symbol,
       CASE
           WHEN bid > sl THEN ask - sl
           ELSE bid - sl
-      END risk_dist
+      END r_dis
     FROM
       v_sltp s
-      LEFT JOIN symbols q ON s.symbol = q.id
+      JOIN symbols q ON s.symbol = q.id
     WHERE
       s.sl IS NOT NULL AND s.tp IS NOT NULL
   ), calc AS (
     SELECT
       s.symbol,
-      COALESCE(CASE
-        WHEN risk_fut.risk > risk_curr THEN f_comm_qua(risk_fut.risk - risk_curr, risk_dist) + curr_qua
-        WHEN risk_fut.risk < risk_curr THEN trunc(curr_qua * risk_fut.risk / risk_curr)::BIGINT
-        WHEN risk_fut.risk = risk_curr THEN curr_qua
-      END, f_comm_qua(risk_fut.risk, risk_dist)) qua
+      TRUNC(CASE
+        WHEN r_cur.qua != 0 THEN
+          CASE
+            WHEN r_fut.risk + r_cur.r_cur < 0 THEN r_fut.risk / r_dis.r_dis - r_cur.qua
+            ELSE
+              CASE
+                WHEN r_cur.r_cur > 0 THEN r_fut.risk / r_dis.r_dis
+                ELSE (r_fut.risk + r_cur.r_cur) / r_dis.r_dis
+              END
+          END
+        ELSE r_fut.risk / r_dis.r_dis
+      END) qua
     FROM
       v_sltp s
-      LEFT JOIN f_risk(risk_balance) risk_fut ON s.symbol = risk_fut.symbol
-      LEFT JOIN risk_curr ON s.symbol = risk_curr.symbol
-      LEFT JOIN risk_dist ON s.symbol = risk_dist.symbol
+      LEFT JOIN symbols ss ON s.symbol = ss.id
+      LEFT JOIN f_risk(risk_balance) r_fut ON s.symbol = r_fut.symbol
+      LEFT JOIN r_cur ON s.symbol = r_cur.symbol
+      LEFT JOIN r_dis ON s.symbol = r_dis.symbol
     WHERE
       sl IS NOT NULL AND tp IS NOT NULL
+      AND ss.bid != 0 AND ss.ask != 0
   )
   SELECT
     calc.symbol,
