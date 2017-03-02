@@ -2,6 +2,7 @@ package ibtrader
 
 import (
 	"sync"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/gofinance/ib"
@@ -38,9 +39,17 @@ func (c *Client) RefreshQuote(symbol string) {
 
 	req.SetID(quoteID)
 
-	// log.Debugf("Quote request for %s - ID %d", req.Symbol, req.ID())
+	log.Debugf("Quote request for %s - ID %d", req.Symbol, req.ID())
 
 	c.engine.Send(req)
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		select {
+		case ch <- signal{}:
+		default:
+		}
+	}()
 
 	<-ch
 }
