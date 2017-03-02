@@ -82,6 +82,8 @@ func NewClient() (c *Client, err error) {
 		gateway = "localhost:7497"
 	}
 
+	//TODO rate limited engine.Send() decorator
+
 	c.engine, err = ib.NewEngine(ib.EngineOptions{
 		Gateway: gateway,
 	})
