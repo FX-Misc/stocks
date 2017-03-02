@@ -35,6 +35,10 @@ func (c *Client) engineLoop() {
 				r, _ := r.(*ib.Position)
 				log.Debugf("Position=%+v", r)
 
+				if r.Contract.SecurityType != "STK" {
+					continue
+				}
+
 				pos := Position{
 					r.Contract.Symbol,
 					r.Position,
