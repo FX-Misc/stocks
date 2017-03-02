@@ -2,4 +2,4 @@
 .env
 vendor
 glide.lock
-positions.csv
+*.csv
