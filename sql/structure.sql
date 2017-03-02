@@ -235,7 +235,7 @@ BEGIN
   )
   SELECT
     calc.symbol,
-    calc.qua
+    calc.qua::BIGINT
   FROM
       calc
   WHERE
