@@ -42,7 +42,7 @@ func (c *Client) engineLoop() {
 				pos := Position{
 					r.Contract.Symbol,
 					r.Position,
-					r.AverageCost,
+					float64(int(r.AverageCost*100)) / 100,
 				}
 
 				c.posMU.Lock()
