@@ -15,7 +15,7 @@ func main() {
 	godotenv.Load()
 
 	log.SetHandler(text.New(os.Stdout))
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 
 	ib, err := ibtrader.NewClient()
 	if err != nil {
