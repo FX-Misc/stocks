@@ -69,6 +69,7 @@ func (c *Client) RefreshQuotes() {
 	wg.Add(len(symbols))
 
 	for _, symbol := range symbols {
+		time.Sleep(10 * time.Millisecond)
 		go func(s Symbol) {
 			c.RefreshQuote(s.Title)
 			wg.Done()
