@@ -35,6 +35,7 @@ BEGIN
       TRUNC(CASE
         WHEN r_cur.qua != 0 THEN
           CASE
+            WHEN s.sl IS NULL AND s.tp IS NULL THEN 0
             WHEN r_fut.risk + r_cur.r_cur < 0 THEN r_fut.risk / r_dis.r_dis - r_cur.qua
             ELSE
               CASE
@@ -43,7 +44,7 @@ BEGIN
               END
           END
         ELSE r_fut.risk / r_dis.r_dis
-      END) qua
+      END) - r_cur.qua qua
     FROM
       v_sltp s
       LEFT JOIN symbols ss ON s.symbol = ss.id
@@ -51,8 +52,7 @@ BEGIN
       LEFT JOIN r_cur ON s.symbol = r_cur.symbol
       LEFT JOIN r_dis ON s.symbol = r_dis.symbol
     WHERE
-      sl IS NOT NULL AND tp IS NOT NULL
-      AND ss.bid != 0 AND ss.ask != 0
+      ss.bid != 0 AND ss.ask != 0
   )
   SELECT
     calc.symbol,
@@ -60,7 +60,7 @@ BEGIN
   FROM
       calc
   WHERE
-    calc.qua != 0;
+    ABS(calc.qua) > 1;
 END;
 $BODY$
 LANGUAGE plpgsql VOLATILE;

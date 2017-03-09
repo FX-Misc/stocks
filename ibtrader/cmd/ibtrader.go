@@ -32,10 +32,7 @@ func main() {
 	log.Infof("NextPositions %#v", np)
 
 	for symbol, qua := range np {
-		currQua, _ := ib.Position(symbol)
-		if orderQua := qua - currQua; orderQua != 0 {
-			ib.Order(symbol, int64(orderQua), 0, true)
-		}
+		ib.Order(symbol, int64(qua), 0, true)
 	}
 
 	time.Sleep(time.Second * 2)
